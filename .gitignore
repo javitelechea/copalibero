@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+copalibero-static-site.zip
 .open-next/
 .wrangler-home/
 
@@ -44,6 +45,9 @@ firebase-service-account.local.json
 
 # wrangler local secrets (never commit these)
 .dev.vars
+
+# si falla `npm run build:static` a mitad, puede quedar el backup de API
+src/.static_export_api_bak
 
 # typescript
 *.tsbuildinfo

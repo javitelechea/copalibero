@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
+const staticExport = process.env.COPALIBERO_STATIC === "1";
+
 const nextConfig: NextConfig = {
+  ...(staticExport ? { output: "export" as const } : {}),
   // OpenNext on Workers: default Next image optimization needs a paid Cloudflare
   // Images binding or a custom loader. Without it, routes can 500. Unoptimized
   // uses normal <img> URLs (Firebase avatars + /public still work).
@@ -22,7 +25,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-if (process.env.NODE_ENV === "development") {
+if (process.env.NODE_ENV === "development" && !staticExport) {
   initOpenNextCloudflareForDev();
 }
 

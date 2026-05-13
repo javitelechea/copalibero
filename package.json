@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "build:static": "node scripts/static-export-api.cjs prebuild && env COPALIBERO_STATIC=1 NEXT_PUBLIC_COPALIBERO_STATIC_EXPORT=1 next build && node scripts/static-export-api.cjs postbuild",
+    "deploy:static": "npm run build:static && wrangler pages deploy out --project-name copalibero-static",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint",
@@ -13,18 +15,24 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "d1:apply:local": "wrangler d1 migrations apply copalibero --local",
+    "d1:apply:remote": "wrangler d1 migrations apply copalibero --remote"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.9",
+    "bcryptjs": "^3.0.3",
     "firebase": "^12.13.0",
+    "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260511.1",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

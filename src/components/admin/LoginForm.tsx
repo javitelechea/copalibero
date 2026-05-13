@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { isD1Backend } from "@/lib/env";
 import { isUserAdmin } from "@/lib/firestore-queries";
 
 export function LoginForm() {
@@ -18,6 +19,22 @@ export function LoginForm() {
     setLoading(true);
     setError("");
     try {
+      if (isD1Backend()) {
+        const r = await fetch("/api/copalibero/auth/login", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        if (!r.ok) {
+          setError(j.error ?? "Error al iniciar sesión");
+          return;
+        }
+        router.push("/admin");
+        return;
+      }
+
       const auth = getFirebaseAuth();
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const admin = await isUserAdmin(cred.user.uid);

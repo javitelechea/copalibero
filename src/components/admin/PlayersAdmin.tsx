@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatarDataUrl";
-import { isOfflineDemoData } from "@/lib/env";
-import { fetchPlayers } from "@/lib/firestore-queries";
+import { isD1Backend, isOfflineDemoData } from "@/lib/env";
+import { d1CreatePlayer, d1UpdatePlayer, fetchPlayers } from "@/lib/firestore-queries";
 import type { PlayerRow } from "@/lib/types";
 import { Plus, Search } from "lucide-react";
 
@@ -21,6 +21,7 @@ export function PlayersAdmin() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const offlineDemo = isOfflineDemoData();
+  const d1 = isD1Backend();
   const newNameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,6 +58,15 @@ export function PlayersAdmin() {
     setBusy(true);
     setMsg("");
     try {
+      if (d1) {
+        const created = await d1CreatePlayer(newName.trim());
+        setPlayers((p) => [...p, created]);
+        setNewName("");
+        setShowCreate(false);
+        setQuery("");
+        router.refresh();
+        return;
+      }
       const db = getFirestoreDb();
       const ref = await addDoc(collection(db, "players"), {
         display_name: newName.trim(),
@@ -83,6 +93,16 @@ export function PlayersAdmin() {
   }
 
   async function updatePlayer(id: string, patch: Partial<PlayerRow>) {
+    if (d1) {
+      const body: Partial<Pick<PlayerRow, "display_name" | "active">> = {};
+      if (typeof patch.display_name === "string") body.display_name = patch.display_name;
+      if (typeof patch.active === "boolean") body.active = patch.active;
+      if (Object.keys(body).length === 0) return;
+      await d1UpdatePlayer(id, body);
+      setPlayers((list) => list.map((p) => (p.id === id ? { ...p, ...body } : p)));
+      router.refresh();
+      return;
+    }
     const db = getFirestoreDb();
     await updateDoc(doc(db, "players", id), patch as Record<string, unknown>);
     setPlayers((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -98,7 +118,9 @@ export function PlayersAdmin() {
       <header>
         <h1 className="text-2xl font-bold">Jugadores</h1>
         <p className="mt-1 text-sm text-muted">
-          La foto se guarda en la base (recortada automáticamente). No hace falta Firebase Storage.
+          {d1
+            ? "Modo Cloudflare D1: solo nombre y estado activo (sin fotos)."
+            : "La foto se guarda en la base (recortada automáticamente). No hace falta Firebase Storage."}
         </p>
       </header>
 
@@ -205,6 +227,7 @@ export function PlayersAdmin() {
                   />
                   Activo en el torneo
                 </label>
+                {!d1 ? (
                 <label className="mt-1 flex cursor-pointer flex-wrap items-center gap-2 text-sm text-accent">
                   <span className="rounded-lg bg-accent/10 px-3 py-1.5 font-medium">
                     Elegir foto
@@ -226,6 +249,7 @@ export function PlayersAdmin() {
                     }}
                   />
                 </label>
+                ) : null}
               </div>
             </div>
           </li>

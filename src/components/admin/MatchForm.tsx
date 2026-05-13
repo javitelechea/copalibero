@@ -5,7 +5,8 @@ import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firesto
 import { useRouter } from "next/navigation";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
-import { deleteDocsWhere } from "@/lib/firestore-queries";
+import { isD1Backend } from "@/lib/env";
+import { deleteDocsWhere, saveMatchD1 } from "@/lib/firestore-queries";
 import type { MatchWithDetails, PlayerRow } from "@/lib/types";
 
 export type MatchFormCreateDefaults = {
@@ -201,6 +202,18 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     if (submitAsScheduled) {
       setLoading(true);
       try {
+        if (isD1Backend()) {
+          await saveMatchD1({
+            id: editId ?? null,
+            mode: "scheduled",
+            played_at: playedAt,
+            notes: notes.trim() || null,
+            pool: [...convocados],
+          });
+          router.push("/admin/partidos");
+          router.refresh();
+          return;
+        }
         const db = getFirestoreDb();
         const notesVal = notes.trim() || null;
         let matchId = editId;
@@ -268,6 +281,21 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
 
     setLoading(true);
     try {
+      if (isD1Backend()) {
+        await saveMatchD1({
+          id: editId ?? null,
+          mode: "played",
+          played_at: playedAt,
+          notes: notes.trim() || null,
+          team_a_score: aScore,
+          team_b_score: bScore,
+          teams: { A: [...teamA], B: [...teamB] },
+          goals,
+        });
+        router.push("/admin/partidos");
+        router.refresh();
+        return;
+      }
       const db = getFirestoreDb();
       let matchId = editId;
 

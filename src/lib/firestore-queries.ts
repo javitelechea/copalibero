@@ -16,7 +16,7 @@ import {
   DEMO_PLAYERS,
   demoMatchById,
 } from "@/lib/demo-data";
-import { isOfflineDemoData } from "@/lib/env";
+import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import type {
   MatchConfirmationRow,
@@ -36,6 +36,21 @@ const C = {
   matchConfirmations: "match_confirmations",
   admins: "admins",
 } as const;
+
+async function cfJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && typeof init.body === "string" && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const r = await fetch(`/api/copalibero/${path}`, {
+    credentials: "include",
+    ...init,
+    headers,
+  });
+  const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : r.statusText);
+  return j as T;
+}
 
 function isoFromField(v: unknown): string {
   if (v == null) return new Date().toISOString();
@@ -82,6 +97,10 @@ export async function fetchPlayers(activeOnly = true): Promise<PlayerRow[]> {
     if (activeOnly) list = list.filter((p) => p.active);
     return list.sort((a, b) => a.display_name.localeCompare(b.display_name));
   }
+  if (isD1Backend()) {
+    const j = await cfJson<{ players: PlayerRow[] }>(`players?activeOnly=${activeOnly ? "1" : "0"}`);
+    return j.players;
+  }
   const db = getFirestoreDb();
   const snap = await getDocs(query(collection(db, C.players), orderBy("display_name")));
   let list = snap.docs.map((d) => playerFromDoc(d));
@@ -93,6 +112,14 @@ export async function fetchPlayerById(id: string): Promise<PlayerRow | null> {
   if (isOfflineDemoData()) {
     return DEMO_PLAYERS.find((p) => p.id === id) ?? null;
   }
+  if (isD1Backend()) {
+    try {
+      const j = await cfJson<{ player: PlayerRow }>(`players/${encodeURIComponent(id)}`);
+      return j.player;
+    } catch {
+      return null;
+    }
+  }
   const db = getFirestoreDb();
   const d = await getDoc(doc(db, C.players, id));
   if (!d.exists()) return null;
@@ -103,6 +130,10 @@ export async function fetchMatches(): Promise<MatchRow[]> {
   if (isOfflineDemoData()) {
     return [...DEMO_MATCHES].sort((a, b) => b.played_at.localeCompare(a.played_at));
   }
+  if (isD1Backend()) {
+    const j = await cfJson<{ matches: MatchRow[] }>("matches");
+    return j.matches;
+  }
   const db = getFirestoreDb();
   const snap = await getDocs(query(collection(db, C.matches), orderBy("played_at", "desc")));
   return snap.docs.map((d) => matchFromDoc(d));
@@ -111,6 +142,10 @@ export async function fetchMatches(): Promise<MatchRow[]> {
 export async function fetchMatchLineups(): Promise<MatchPlayerRow[]> {
   if (isOfflineDemoData()) {
     return [...DEMO_LINEUPS];
+  }
+  if (isD1Backend()) {
+    const j = await cfJson<{ rows: MatchPlayerRow[] }>("match_players");
+    return j.rows;
   }
   const db = getFirestoreDb();
   const snap = await getDocs(collection(db, C.matchPlayers));
@@ -128,6 +163,10 @@ export async function fetchMatchGoals(): Promise<MatchGoalRow[]> {
   if (isOfflineDemoData()) {
     return [...DEMO_GOALS];
   }
+  if (isD1Backend()) {
+    const j = await cfJson<{ rows: MatchGoalRow[] }>("match_goals");
+    return j.rows;
+  }
   const db = getFirestoreDb();
   const snap = await getDocs(collection(db, C.matchGoals));
   return snap.docs.map((d) => {
@@ -144,6 +183,14 @@ export async function fetchMatchGoals(): Promise<MatchGoalRow[]> {
 export async function fetchConfirmations(): Promise<MatchConfirmationRow[]> {
   if (isOfflineDemoData()) {
     return [...DEMO_CONFIRMATIONS];
+  }
+  if (isD1Backend()) {
+    const j = await cfJson<{ rows: MatchConfirmationRow[] }>("match_confirmations");
+    return j.rows.map((row) => {
+      const st = String(row.status);
+      const status = st === "maybe" || st === "declined" ? st : ("confirmed" as const);
+      return { ...row, status };
+    });
   }
   const db = getFirestoreDb();
   const snap = await getDocs(collection(db, C.matchConfirmations));
@@ -164,6 +211,14 @@ export async function fetchConfirmations(): Promise<MatchConfirmationRow[]> {
 export async function fetchMatchById(matchId: string): Promise<MatchWithDetails | null> {
   if (isOfflineDemoData()) {
     return demoMatchById(matchId);
+  }
+  if (isD1Backend()) {
+    try {
+      const j = await cfJson<{ match: MatchWithDetails }>(`matches/${encodeURIComponent(matchId)}`);
+      return j.match;
+    } catch {
+      return null;
+    }
   }
   const db = getFirestoreDb();
   const mSnap = await getDoc(doc(db, C.matches, matchId));
@@ -219,6 +274,11 @@ export async function isUserAdmin(uid: string): Promise<boolean> {
   if (isOfflineDemoData()) {
     return false;
   }
+  if (isD1Backend()) {
+    void uid;
+    const j = await cfJson<{ user: { email: string } | null }>("auth/me");
+    return Boolean(j.user);
+  }
   const db = getFirestoreDb();
   const ad = await getDoc(doc(db, C.admins, uid));
   return ad.exists();
@@ -233,6 +293,9 @@ export async function deleteDocsWhere(
   if (isOfflineDemoData()) {
     return;
   }
+  if (isD1Backend()) {
+    return;
+  }
   const db = getFirestoreDb();
   const qy = query(collection(db, collectionName), where(field, "==", value));
   const snap = await getDocs(qy);
@@ -243,4 +306,31 @@ export async function deleteDocsWhere(
     docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
     await batch.commit();
   }
+}
+
+export type SaveMatchD1Body = {
+  id?: string | null;
+  mode: "scheduled" | "played";
+  played_at: string;
+  notes: string | null;
+  team_a_score?: number;
+  team_b_score?: number;
+  pool?: string[];
+  teams?: { A: string[]; B: string[] };
+  goals?: Record<string, number>;
+};
+
+export async function saveMatchD1(body: SaveMatchD1Body): Promise<{ id: string }> {
+  return cfJson("matches/save", { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function d1CreatePlayer(display_name: string): Promise<PlayerRow> {
+  return cfJson("players", { method: "POST", body: JSON.stringify({ display_name }) });
+}
+
+export async function d1UpdatePlayer(
+  id: string,
+  patch: Partial<Pick<PlayerRow, "display_name" | "active">>
+): Promise<void> {
+  await cfJson(`players/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
