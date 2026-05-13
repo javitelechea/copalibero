@@ -13,10 +13,15 @@ export function getFirebaseApp(): FirebaseApp {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   };
-  // No seteamos storageBucket: esta app no usa firebase/storage. Un valor mal
-  // copiado (p. ej. la URL *.firebasestorage.app) provoca "Permission denied"
-  // en llamadas que validan el bucket por defecto.
-  if (!config.apiKey || !config.projectId) {
+  const projectId = config.projectId;
+  const bucketOverride = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  // Proyectos nuevos en Spark: Firestore a veces devuelve PERMISSION_DENIED sobre
+  // `PROJECT.firebasestorage.app` si el SDK no fija bucket. Forzamos el nombre clásico
+  // `*.appspot.com` salvo override explícito (consola Firebase → tu bucket real).
+  if (projectId) {
+    config.storageBucket = bucketOverride || `${projectId}.appspot.com`;
+  }
+  if (!config.apiKey || !projectId) {
     throw new Error("Firebase no está configurado (faltan variables NEXT_PUBLIC_FIREBASE_*)");
   }
   app = getApps().length ? getApp() : initializeApp(config);
@@ -35,7 +40,7 @@ export function getFirebaseAuth(): Auth {
 export function firebaseErrorUserHint(message: string): string | null {
   const m = message.toLowerCase();
   if (m.includes("firebasestorage.app") || m.includes("firebase storage")) {
-    return "Google devuelve esto en la respuesta de Firestore (no es tu reglas mal pegadas). Pasos: (1) En Cloudflare borrá también NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET si existe. (2) Clave API: sin restricción de API y con tu URL en referrers, o “Ninguna” en aplicación, guardá y esperá 5 min. (3) Si sigue igual: en proyectos nuevos a veces hace falta plan Blaze solo para que exista el recurso del bucket por defecto (podés no usar Storage; el tier gratuito suele quedar en $0). Si no querés tarjeta: usá NEXT_PUBLIC_COPALIBERO_DEMO=1 en Cloudflare sin variables Firebase, o creá otro proyecto Firebase y probá.";
+    return "Si sigue apareciendo firebasestorage.app: en Cloudflare no pongas NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET con esa URL; la app ya usa por defecto proyecto.appspot.com. Revisá la clave API (sin restricciones para probar). Si nada ayuda: Blaze (puede quedar en $0 sin usar Storage) o NEXT_PUBLIC_COPALIBERO_DEMO=1 sin Firebase.";
   }
   if (m.includes("permission-denied") || m.includes("permission denied")) {
     return "Si el mensaje no menciona Storage, revisá firestore.rules (lectura pública en colecciones que usa la app) y que la API key no esté restringida de más en Google Cloud.";
