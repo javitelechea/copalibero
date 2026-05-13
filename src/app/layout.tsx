@@ -7,12 +7,14 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+const staticBase = process.env.NEXT_PUBLIC_STATIC_BASE ?? "";
+
 export const metadata: Metadata = {
   title: "CopaLibero",
   description: "Torneo amateur — tabla, partidos y jugadores",
   icons: {
-    icon: [{ url: "/copalibero-logo.png", type: "image/png" }],
-    apple: [{ url: "/copalibero-logo.png", type: "image/png" }],
+    icon: [{ url: `${staticBase}/copalibero-logo.png`, type: "image/png" }],
+    apple: [{ url: `${staticBase}/copalibero-logo.png`, type: "image/png" }],
   },
 };
 

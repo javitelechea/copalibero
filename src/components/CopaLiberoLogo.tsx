@@ -1,6 +1,7 @@
 import Image from "next/image";
 
-const SRC = "/copalibero-logo.png";
+const base = process.env.NEXT_PUBLIC_STATIC_BASE ?? "";
+const SRC = `${base}/copalibero-logo.png`;
 const W = 225;
 const H = 225;
 
