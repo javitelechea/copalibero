@@ -42,6 +42,9 @@ firebase-service-account.local.json
 # vercel
 .vercel
 
+# wrangler local secrets (never commit these)
+.dev.vars
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
