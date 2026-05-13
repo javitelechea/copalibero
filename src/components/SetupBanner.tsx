@@ -21,9 +21,10 @@ export function SetupBanner() {
         <code className="rounded bg-surface-2 px-1">firebase/firestore.rules</code>. Creá la
         colección <code className="rounded bg-surface-2 px-1">admins</code> con un documento cuyo
         ID sea el UID de tu usuario. Las fotos de jugadores se guardan en Firestore (no hace falta
-        el SDK de Storage). Si ves error con <code className="rounded bg-surface-2 px-1">firebasestorage.app</code>
-        , no cargues <code className="rounded bg-surface-2 px-1">NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET</code> en
-        Cloudflare (o usá el valor exacto del bucket en Configuración del proyecto, no la URL).
+        el SDK de Storage). Si aparece error con{" "}
+        <code className="rounded bg-surface-2 px-1">firebasestorage.app</code> aunque no tengas
+        variable de bucket, abrí igual <strong>Storage</strong> en la consola y completá el bucket por
+        defecto del proyecto (Firebase lo asocia igual al proyecto).
       </p>
       <Link
         href="https://console.firebase.google.com/"

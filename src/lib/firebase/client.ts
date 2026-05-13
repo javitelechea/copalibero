@@ -35,7 +35,7 @@ export function getFirebaseAuth(): Auth {
 export function firebaseErrorUserHint(message: string): string | null {
   const m = message.toLowerCase();
   if (m.includes("firebasestorage.app") || m.includes("firebase storage")) {
-    return "Eso es Firebase Storage, no reglas de Firestore. En Cloudflare y en .env.local: borrá NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET (esta app no lo necesita) o poné exactamente el bucket que muestra Firebase → ⚙️ Configuración del proyecto (suele ser proyecto.appspot.com, no la URL). En la consola, abrí Storage y completá el asistente del bucket por defecto si aparece.";
+    return "Eso apunta al bucket por defecto de Storage del proyecto (en proyectos nuevos el nombre suele terminar en .firebasestorage.app), aunque no tengas NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET. En Firebase Console → Build → Storage: abrí Storage y completá “Comenzar” / bucket por defecto. Si aparece aviso de “mejoras de seguridad” o de reparar permisos del bucket, seguilo. En Google Cloud → Credenciales → tu API key: si tiene restricciones, permití al menos Identity Toolkit, Cloud Firestore y Token Service (o quitá restricciones de API mientras probás).";
   }
   if (m.includes("permission-denied") || m.includes("permission denied")) {
     return "Si el mensaje no menciona Storage, revisá firestore.rules (lectura pública en colecciones que usa la app) y que la API key no esté restringida de más en Google Cloud.";
