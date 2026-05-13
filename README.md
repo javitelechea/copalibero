@@ -70,7 +70,17 @@ En el repo ya está **`vercel.json`**: fuerza `npm run build` (Next completo con
 
 1. [vercel.com](https://vercel.com) → **Add New** → **Project** → importá el repo de GitHub.
 2. Si el código no está en la raíz del repo, en **Root Directory** pone **`copalibero`** (o la carpeta donde está este `package.json`).
-3. **Environment Variables** (Production, y Preview si querés): copiá las mismas que en `.env.local` — todas las `NEXT_PUBLIC_FIREBASE_*`. **No** agregues `NEXT_PUBLIC_COPALIBERO_DEMO` en producción (o dejala en `0` / vacía).
+3. **Variables:** podés cargarlas a mano en **Settings → Environment Variables**, o **desde tu Mac** (lee tu `.env.local` y las manda a Production):
+
+   ```bash
+   cd copalibero
+   npx vercel login
+   npx vercel link          # elegí el proyecto copalibero de la lista
+   npm run vercel:sync-firebase-env
+   ```
+
+   Después **Redeploy** en Vercel. El script solo sube claves que empiezan con `NEXT_PUBLIC_FIREBASE_` (no toca `DEMO`).
+
 4. **Deploy**. Cuando termine, abrí la URL `*.vercel.app`.
 5. En Firebase Console: **Authentication** (email/contraseña), **Firestore**. Creá el documento **`admins/{uid}`** con el **UID** del usuario admin (lo ves en Authentication → usuario → UID).
 6. Reglas Firestore: subí lo de `firebase/firestore.rules` en la consola.
