@@ -35,7 +35,7 @@ export function getFirebaseAuth(): Auth {
 export function firebaseErrorUserHint(message: string): string | null {
   const m = message.toLowerCase();
   if (m.includes("firebasestorage.app") || m.includes("firebase storage")) {
-    return "Eso apunta al bucket por defecto de Storage del proyecto (en proyectos nuevos el nombre suele terminar en .firebasestorage.app), aunque no tengas NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET. En Firebase Console → Build → Storage: abrí Storage y completá “Comenzar” / bucket por defecto. Si aparece aviso de “mejoras de seguridad” o de reparar permisos del bucket, seguilo. En Google Cloud → Credenciales → tu API key: si tiene restricciones, permití al menos Identity Toolkit, Cloud Firestore y Token Service (o quitá restricciones de API mientras probás).";
+    return "No hace falta activar Cloud Storage ni poner tarjeta: esta app no usa Storage. Ese nombre (.firebasestorage.app) es el bucket por defecto del proyecto en Google; en plan Spark a veces aparece en errores aunque solo uses Firestore. Revisá Google Cloud → Credenciales → tu clave web: restricciones de API deben permitir Cloud Firestore API, Identity Toolkit y Token Service (o sin restricción de API para probar). Si no querés tocar Firebase aún, publicá solo demo con NEXT_PUBLIC_COPALIBERO_DEMO=1 sin el resto de variables.";
   }
   if (m.includes("permission-denied") || m.includes("permission denied")) {
     return "Si el mensaje no menciona Storage, revisá firestore.rules (lectura pública en colecciones que usa la app) y que la API key no esté restringida de más en Google Cloud.";
