@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 
-/** Colocá la foto con la copa en `public/moscampeon-2025.png` (887×1024 o similar). */
-const HERO_PHOTO = "/moscampeon-2025.png";
+const base = process.env.NEXT_PUBLIC_STATIC_BASE ?? "";
+const HERO_PHOTO = `${base}/moscampeon-2025.png`;
 const W = 887;
 const H = 1024;
 
@@ -73,9 +73,7 @@ export function ChampionHistoria2025({ championPlayerHref, championAvatarUrl }: 
               <div className="flex aspect-[887/1024] w-full flex-col items-center justify-center gap-4 bg-surface-2 px-6 text-center">
                 <PlayerAvatar name={CHAMPION_AVATAR_NAME} url={null} size={120} />
                 <p className="text-xs leading-snug text-muted">
-                  Falta la foto con la copa en el proyecto: subí{" "}
-                  <code className="rounded bg-canvas px-1 py-0.5 font-mono text-[0.65rem] text-fg">public/moscampeon-2025.png</code>
-                  .
+                  Acá irá la foto del campeón con la copa cuando esté en el sitio.
                 </p>
               </div>
             )}
