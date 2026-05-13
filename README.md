@@ -1,40 +1,71 @@
 # CopaLibero
 
-Web del torneo (Next.js): tabla, partidos, jugadores y panel admin con Firebase.
+Web del torneo (Next.js): tabla, partidos, jugadores y (opcional) panel admin.
 
-## Publicar **sin Firebase** (solo datos de ejemplo)
+---
 
-La app solo arranca la parte pública si hay **Firebase completo** o **modo demo** activado.
+## La forma más simple de publicar (GitHub + estático, sin Firebase)
 
-1. En tu hosting (p. ej. [Vercel](https://vercel.com)), abrí el proyecto → **Settings** → **Environment Variables**.
-2. Agregá **una sola** variable (Production y, si querés, Preview):
-   - **Name:** `NEXT_PUBLIC_COPALIBERO_DEMO`
-   - **Value:** `1`
-3. **No** cargues las variables `NEXT_PUBLIC_FIREBASE_*` si todavía no tenés proyecto Firebase listo. Si quedan vacías o incompletas, la app igual entra en **modo demo** (datos locales de ejemplo).
-4. Hacé un **redeploy** después de guardar variables.
+Ideal si solo querés **mostrar el torneo con datos de ejemplo** y subir con **Git push** (Vercel / Netlify / **Cloudflare Pages** conectado al repo).
 
-En local, lo mismo en `.env.local`:
+1. En el hosting, conectá el repo de GitHub (Create project → import from Git).
+2. Si la app está en la subcarpeta `copalibero`, configurá **Root directory** = `copalibero`.
+3. Usá este build:
+
+| Campo | Valor |
+| ----- | ----- |
+| Install command | `npm ci` (o `npm install`) |
+| Build command | `npm run build:static` |
+| Output / publish directory | `out` |
+
+No hace falta definir variables de entorno para esa build: queda **solo demo** embebida (sin Firebase, sin servidor, sin admin útil).
+
+4. Cada push a la rama configurada vuelve a desplegar solo.
+
+En local, lo mismo:
 
 ```bash
-NEXT_PUBLIC_COPALIBERO_DEMO=1
+npm install
+npm run build:static
 ```
 
-Luego `npm run dev` o `npm run build && npm start`.
-
-**Qué incluye el modo demo:** inicio, partidos, jugadores y detalle con datos de ejemplo. **El panel admin** (Firestore + Auth) **no** puede guardar datos hasta que configures Firebase y tu usuario en `admins/{uid}`.
+La carpeta `out/` es el sitio estático (subila manualmente si querés, sin Git).
 
 ---
 
-## Publicar **con Firebase** (datos reales + admin)
+## Modo demo con servidor Next (sin Firebase, con `npm run dev` / Vercel build normal)
 
-1. Copiá `.env.local.example` a `.env.local` y completá todas las `NEXT_PUBLIC_FIREBASE_*`.
-2. En Firestore, creá el documento **`admins/{tu_uid}`** para el usuario con el que te logueás.
-3. Reglas: ver `firebase/firestore.rules`.
-4. **Quitá** `NEXT_PUBLIC_COPALIBERO_DEMO` o ponela distinta de `1` si ya no querés mezclar datos de prueba.
+Si usás `npm run dev` o `npm run build` (no `build:static`), la parte pública arranca si hay **Firebase completo**, **modo demo** o **backend D1** (ver abajo).
+
+Variables típicas en el hosting o en `.env.local`:
+
+- **Name:** `NEXT_PUBLIC_COPALIBERO_DEMO`  
+- **Value:** `1`  
+
+No completes `NEXT_PUBLIC_FIREBASE_*` si no tenés Firebase: con demo activado igual ves tabla, partidos y jugadores de ejemplo.
+
+**Admin en modo demo:** no puede persistir datos (no hay Firestore ni API hasta que configures algo más abajo).
 
 ---
 
-## Desarrollo
+## Producción con Firebase (datos reales + admin)
+
+1. Copiá `.env.local.example` a `.env.local` y completá las `NEXT_PUBLIC_FIREBASE_*`.
+2. En Firestore, documento **`admins/{tu_uid}`** para el usuario de login.
+3. Reglas: `firebase/firestore.rules`.
+4. Quitá o desactivá `NEXT_PUBLIC_COPALIBERO_DEMO` si no querés datos de prueba.
+
+Build habitual: `npm run build` → output según tu plataforma (Vercel por defecto `.next` + serverless).
+
+---
+
+## Backend en Cloudflare (D1, sin Firebase)
+
+Variables: `NEXT_PUBLIC_COPALIBERO_BACKEND=d1`, D1 migrado, `SESSION_SECRET`, y deploy con OpenNext (`npm run deploy:cf` o el flujo de Wrangler). Para desarrollo acorde al Worker: `npm run preview:cf`. Detalle en `.env.local.example` y `wrangler.jsonc`.
+
+---
+
+## Desarrollo local
 
 ```bash
 npm install
@@ -43,11 +74,13 @@ npm run dev
 
 Abrí [http://localhost:3000](http://localhost:3000).
 
-## Deploy (referencia rápida)
+---
 
-| Objetivo              | Variables mínimas                                      |
-| --------------------- | ------------------------------------------------------ |
-| Demo público        | `NEXT_PUBLIC_COPALIBERO_DEMO=1`                        |
-| Producción con torneo | Todas las `NEXT_PUBLIC_FIREBASE_*` + doc `admins/...` |
+## Resumen rápido
 
-Plataformas habituales: **Vercel**, **Netlify**, **Cloudflare Pages** (build: `npm run build`, output según doc de Next.js 16).
+| Objetivo | Qué usar |
+| -------- | --------- |
+| Solo mostrar demo, subir fácil (Git o ZIP) | `npm run build:static` → carpeta **`out/`** |
+| Demo con `next dev` / build estándar | `NEXT_PUBLIC_COPALIBERO_DEMO=1` |
+| Torneo real + admin Firebase | Todas las `NEXT_PUBLIC_FIREBASE_*` + `admins/{uid}` |
+| Torneo real sin Firebase | `NEXT_PUBLIC_COPALIBERO_BACKEND=d1` + D1 + secrets |
