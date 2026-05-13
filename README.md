@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CopaLibero
 
-## Getting Started
+Web del torneo (Next.js): tabla, partidos, jugadores y panel admin con Firebase.
 
-First, run the development server:
+## Publicar **sin Firebase** (solo datos de ejemplo)
+
+La app solo arranca la parte pública si hay **Firebase completo** o **modo demo** activado.
+
+1. En tu hosting (p. ej. [Vercel](https://vercel.com)), abrí el proyecto → **Settings** → **Environment Variables**.
+2. Agregá **una sola** variable (Production y, si querés, Preview):
+   - **Name:** `NEXT_PUBLIC_COPALIBERO_DEMO`
+   - **Value:** `1`
+3. **No** cargues las variables `NEXT_PUBLIC_FIREBASE_*` si todavía no tenés proyecto Firebase listo. Si quedan vacías o incompletas, la app igual entra en **modo demo** (datos locales de ejemplo).
+4. Hacé un **redeploy** después de guardar variables.
+
+En local, lo mismo en `.env.local`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_COPALIBERO_DEMO=1
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Luego `npm run dev` o `npm run build && npm start`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Qué incluye el modo demo:** inicio, partidos, jugadores y detalle con datos de ejemplo. **El panel admin** (Firestore + Auth) **no** puede guardar datos hasta que configures Firebase y tu usuario en `admins/{uid}`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Publicar **con Firebase** (datos reales + admin)
 
-To learn more about Next.js, take a look at the following resources:
+1. Copiá `.env.local.example` a `.env.local` y completá todas las `NEXT_PUBLIC_FIREBASE_*`.
+2. En Firestore, creá el documento **`admins/{tu_uid}`** para el usuario con el que te logueás.
+3. Reglas: ver `firebase/firestore.rules`.
+4. **Quitá** `NEXT_PUBLIC_COPALIBERO_DEMO` o ponela distinta de `1` si ya no querés mezclar datos de prueba.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Desarrollo
 
-## Deploy on Vercel
+```bash
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Abrí [http://localhost:3000](http://localhost:3000).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy (referencia rápida)
+
+| Objetivo              | Variables mínimas                                      |
+| --------------------- | ------------------------------------------------------ |
+| Demo público        | `NEXT_PUBLIC_COPALIBERO_DEMO=1`                        |
+| Producción con torneo | Todas las `NEXT_PUBLIC_FIREBASE_*` + doc `admins/...` |
+
+Plataformas habituales: **Vercel**, **Netlify**, **Cloudflare Pages** (build: `npm run build`, output según doc de Next.js 16).

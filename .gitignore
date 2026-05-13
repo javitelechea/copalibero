@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (no subir secretos; la plantilla sí va al repo)
 .env*
+!.env.local.example
+
+# Cuenta de servicio Firebase (solo local, para npm run seed:players)
+firebase-service-account.local.json
 
 # vercel
 .vercel
