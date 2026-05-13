@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChampionHistoria2025 } from "@/components/ChampionHistoria2025";
 import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { canUsePublicApp } from "@/lib/env";
+import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
 import {
   fetchConfirmations,
@@ -98,7 +98,14 @@ export default function HomePage() {
             </span>
           )}
         </p>
-        <SetupBanner />
+        {isFirebaseConfigured() ? (
+          <p className="text-sm text-muted">
+            Las variables Firebase ya están cargadas; el fallo viene de permisos en Google (casi
+            siempre la <strong>clave API del navegador</strong>), no de “falta el .env”.
+          </p>
+        ) : (
+          <SetupBanner />
+        )}
       </div>
     );
   }
