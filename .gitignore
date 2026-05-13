@@ -16,12 +16,14 @@
 # next.js
 /.next/
 /out/
+.open-next/
+.wrangler-home/
 
 # production
 /build
 
-# misc
-.DS_Store
+# local npm cache (CI / sandbox)
+.npm-cache/
 *.pem
 
 # debug
