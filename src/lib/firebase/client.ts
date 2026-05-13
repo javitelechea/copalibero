@@ -40,7 +40,7 @@ export function getFirebaseAuth(): Auth {
 export function firebaseErrorUserHint(message: string): string | null {
   const m = message.toLowerCase();
   if (m.includes("firebasestorage.app") || m.includes("firebase storage")) {
-    return "Si sigue apareciendo firebasestorage.app: en Cloudflare no pongas NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET con esa URL; la app ya usa por defecto proyecto.appspot.com. Revisá la clave API (sin restricciones para probar). Si nada ayuda: Blaze (puede quedar en $0 sin usar Storage) o NEXT_PUBLIC_COPALIBERO_DEMO=1 sin Firebase.";
+    return "Esto ya no se arregla con reglas de Firestore ni con storageBucket en el código: Google rechaza el recurso del bucket por defecto (*.firebasestorage.app) en tu proyecto. En muchos casos la salida es pasar el proyecto a plan Blaze (no implica cobro si no salís del tier gratis; no hace falta “usar” Storage). Alternativas sin tarjeta: NEXT_PUBLIC_COPALIBERO_DEMO=1 en Cloudflare sin variables Firebase, u otro proyecto Firebase. Más info: firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024";
   }
   if (m.includes("permission-denied") || m.includes("permission denied")) {
     return "Si el mensaje no menciona Storage, revisá firestore.rules (lectura pública en colecciones que usa la app) y que la API key no esté restringida de más en Google Cloud.";

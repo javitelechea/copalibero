@@ -100,8 +100,18 @@ export default function HomePage() {
         </p>
         {isFirebaseConfigured() ? (
           <p className="text-sm text-muted">
-            Las variables Firebase ya están cargadas; el fallo viene de permisos en Google (casi
-            siempre la <strong>clave API del navegador</strong>), no de “falta el .env”.
+            {error.toLowerCase().includes("firebasestorage.app") ? (
+              <>
+                Las variables Firebase ya están cargadas. Este fallo viene del{" "}
+                <strong>proyecto en Google</strong> (recurso del bucket por defecto), no de reglas de
+                Firestore ni de un .env mal pegado.
+              </>
+            ) : (
+              <>
+                Las variables Firebase ya están cargadas; si el error no menciona Storage, revisá
+                reglas y la <strong>clave API</strong> en Google Cloud.
+              </>
+            )}
           </p>
         ) : (
           <SetupBanner />
