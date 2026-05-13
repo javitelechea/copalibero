@@ -2,16 +2,10 @@
 
 import { isOfflineDemoData, isStaticExportBuild } from "@/lib/env";
 
+/** Aviso solo en desarrollo / hosting con variables demo; la build estática publicada no muestra cinta (datos ya van embebidos). */
 export function DemoRibbon() {
+  if (isStaticExportBuild()) return null;
   if (!isOfflineDemoData()) return null;
-  if (isStaticExportBuild()) {
-    return (
-      <div className="mb-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-center text-xs text-muted">
-        <strong className="text-accent">Modo demo</strong> — datos de ejemplo en esta versión publicada. No hay
-        administración ni datos en vivo acá.
-      </div>
-    );
-  }
   return (
     <div className="mb-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-center text-xs text-muted">
       <strong className="text-accent">Modo demo</strong> — datos de ejemplo. Cuando conectes Firebase, quitá{" "}

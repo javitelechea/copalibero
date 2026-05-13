@@ -64,14 +64,29 @@ No completes `NEXT_PUBLIC_FIREBASE_*` si no tenés Firebase: con demo activado i
 
 ---
 
-## Producción con Firebase (datos reales + admin)
+## Firebase + Vercel (producción con admin)
+
+En el repo ya está **`vercel.json`**: fuerza `npm run build` (Next completo con API si la usás), **no** `build:static`.
+
+1. [vercel.com](https://vercel.com) → **Add New** → **Project** → importá el repo de GitHub.
+2. Si el código no está en la raíz del repo, en **Root Directory** pone **`copalibero`** (o la carpeta donde está este `package.json`).
+3. **Environment Variables** (Production, y Preview si querés): copiá las mismas que en `.env.local` — todas las `NEXT_PUBLIC_FIREBASE_*`. **No** agregues `NEXT_PUBLIC_COPALIBERO_DEMO` en producción (o dejala en `0` / vacía).
+4. **Deploy**. Cuando termine, abrí la URL `*.vercel.app`.
+5. En Firebase Console: **Authentication** (email/contraseña), **Firestore**. Creá el documento **`admins/{uid}`** con el **UID** del usuario admin (lo ves en Authentication → usuario → UID).
+6. Reglas Firestore: subí lo de `firebase/firestore.rules` en la consola.
+
+Si algo falla en el build, mirá el log del deploy en Vercel; local probá `npm run build` antes.
+
+---
+
+## Producción con Firebase (otro hosting)
 
 1. Copiá `.env.local.example` a `.env.local` y completá las `NEXT_PUBLIC_FIREBASE_*`.
 2. En Firestore, documento **`admins/{tu_uid}`** para el usuario de login.
 3. Reglas: `firebase/firestore.rules`.
 4. Quitá o desactivá `NEXT_PUBLIC_COPALIBERO_DEMO` si no querés datos de prueba.
 
-Build habitual: `npm run build` → output según tu plataforma (Vercel por defecto `.next` + serverless).
+Build: **`npm run build`** (no uses `build:static` si querés admin + Firestore en vivo).
 
 ---
 
@@ -99,6 +114,7 @@ Abrí [http://localhost:3000](http://localhost:3000).
 | Solo mostrar demo, subir fácil (Git o ZIP) | `npm run build:static` → carpeta **`out/`** |
 | Demo con `next dev` / build estándar | `NEXT_PUBLIC_COPALIBERO_DEMO=1` |
 | Torneo real + admin Firebase | Todas las `NEXT_PUBLIC_FIREBASE_*` + `admins/{uid}` |
+| Torneo real + admin en **Vercel** | Importar repo + variables Firebase + `vercel.json` ya fija `npm run build` |
 | Torneo real sin Firebase | `NEXT_PUBLIC_COPALIBERO_BACKEND=d1` + D1 + secrets |
 
 Lista equivalente:
@@ -106,4 +122,5 @@ Lista equivalente:
 - **Demo estática (Git / ZIP):** `npm run build:static` → `out/`
 - **Demo con Next normal:** `NEXT_PUBLIC_COPALIBERO_DEMO=1`
 - **Producción Firebase:** `NEXT_PUBLIC_FIREBASE_*` + `admins/{uid}`
+- **Producción en Vercel:** lo mismo + import del repo (ver sección “Firebase + Vercel”)
 - **Producción sin Firebase:** `NEXT_PUBLIC_COPALIBERO_BACKEND=d1` + D1 + secrets
