@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firestore";
+import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firestore/lite";
 import { useRouter } from "next/navigation";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";

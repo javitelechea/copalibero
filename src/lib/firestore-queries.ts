@@ -7,7 +7,7 @@ import {
   query,
   where,
   writeBatch,
-} from "firebase/firestore";
+} from "firebase/firestore/lite";
 import {
   DEMO_CONFIRMATIONS,
   DEMO_GOALS,
