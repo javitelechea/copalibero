@@ -10,8 +10,8 @@ const geistSans = Geist({
 const staticBase = process.env.NEXT_PUBLIC_STATIC_BASE ?? "";
 
 export const metadata: Metadata = {
-  title: "CopaLibero",
-  description: "Torneo amateur — tabla, partidos y jugadores",
+  title: "Copa Libero 2026",
+  description: "Torneo amateur 2026 — tabla, partidos y jugadores",
   icons: {
     icon: [{ url: `${staticBase}/copalibero-logo.png`, type: "image/png" }],
     apple: [{ url: `${staticBase}/copalibero-logo.png`, type: "image/png" }],
