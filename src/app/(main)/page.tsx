@@ -6,6 +6,7 @@ import { ChampionHistoria2025 } from "@/components/ChampionHistoria2025";
 import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp } from "@/lib/env";
+import { firebaseErrorUserHint } from "@/lib/firebase/client";
 import {
   fetchConfirmations,
   fetchMatchGoals,
@@ -81,10 +82,21 @@ export default function HomePage() {
   }
 
   if (error) {
+    const hint = firebaseErrorUserHint(error);
     return (
       <div className="flex flex-col gap-4">
         <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}. Revisá reglas de Firestore y variables de entorno.
+          <span className="font-medium">Error:</span> {error}
+          {hint ? (
+            <>
+              <br />
+              <span className="mt-2 block text-red-100/90">{hint}</span>
+            </>
+          ) : (
+            <span className="mt-2 block text-red-100/80">
+              Revisá reglas de Firestore, variables NEXT_PUBLIC_FIREBASE_* y restricciones de la API key en Google Cloud.
+            </span>
+          )}
         </p>
         <SetupBanner />
       </div>
