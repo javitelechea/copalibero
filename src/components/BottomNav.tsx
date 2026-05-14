@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Shield, Trophy, Users } from "lucide-react";
+import { Flame, Home, Shield, Trophy, Users } from "lucide-react";
 
 const items = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/partidos", label: "Partidos", icon: Trophy },
   { href: "/jugadores", label: "Jugadores", icon: Users },
+  { href: "/asado", label: "Asado", icon: Flame },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
 
@@ -20,7 +21,7 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-md"
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1">
+      <div className="mx-auto flex max-w-xl items-stretch justify-around px-1 pt-1">
         {items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/"

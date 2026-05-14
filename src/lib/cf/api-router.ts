@@ -345,6 +345,107 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       return json({ id: matchId });
     }
 
+    if (path === "asados" && method === "GET") {
+      const { results } = await db
+        .prepare("SELECT id, held_at, notes, total_cost, created_at FROM asados ORDER BY held_at DESC")
+        .all<{
+          id: string;
+          held_at: string;
+          notes: string | null;
+          total_cost: number | null;
+          created_at: string;
+        }>();
+      return json({
+        asados: (results ?? []).map((r) => ({
+          id: r.id,
+          held_at: String(r.held_at).slice(0, 10),
+          notes: r.notes,
+          total_cost: r.total_cost == null || Number.isNaN(Number(r.total_cost)) ? null : Number(r.total_cost),
+          created_at: r.created_at,
+        })),
+      });
+    }
+
+    if (path === "asado_attendees" && method === "GET") {
+      const url = new URL(request.url);
+      const asadoId = url.searchParams.get("asadoId");
+      const q = asadoId
+        ? "SELECT id, asado_id, player_id, portions, stayed, bought_meat FROM asado_attendees WHERE asado_id = ? ORDER BY player_id"
+        : "SELECT id, asado_id, player_id, portions, stayed, bought_meat FROM asado_attendees ORDER BY asado_id, player_id";
+      const stmt = asadoId ? db.prepare(q).bind(asadoId) : db.prepare(q);
+      const { results } = await stmt.all<{
+        id: string;
+        asado_id: string;
+        player_id: string;
+        portions: number;
+        stayed: number;
+        bought_meat: number;
+      }>();
+      return json({
+        rows: (results ?? []).map((r) => ({
+          id: r.id,
+          asado_id: r.asado_id,
+          player_id: r.player_id,
+          portions: Math.max(0, Math.trunc(Number(r.portions ?? 0))),
+          stayed: r.stayed !== 0,
+          bought_meat: r.bought_meat !== 0,
+        })),
+      });
+    }
+
+    if (path === "asados/save" && method === "POST") {
+      const gate = await requireAdmin(request);
+      if (gate instanceof Response) return gate;
+      const b = (await request.json()) as {
+        id?: string | null;
+        held_at?: string;
+        notes?: string | null;
+        total_cost?: number | null;
+        attendees?: { player_id: string; portions?: number; stayed?: boolean; bought_meat?: boolean }[];
+      };
+      const heldAt = String(b.held_at ?? "").slice(0, 10);
+      if (!heldAt) return json({ error: "Fecha requerida" }, { status: 400 });
+      const asadoId = b.id && String(b.id).trim().length > 0 ? String(b.id) : crypto.randomUUID();
+      const notes = b.notes ?? null;
+      const totalCost =
+        b.total_cost != null && Number.isFinite(Number(b.total_cost)) ? Number(b.total_cost) : null;
+      const created = new Date().toISOString();
+
+      await db
+        .prepare(
+          `INSERT INTO asados (id, held_at, notes, total_cost, created_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             held_at = excluded.held_at,
+             notes = excluded.notes,
+             total_cost = excluded.total_cost`
+        )
+        .bind(asadoId, heldAt, notes, totalCost, created)
+        .run();
+
+      await db.prepare("DELETE FROM asado_attendees WHERE asado_id = ?").bind(asadoId).run();
+
+      const attendees = b.attendees ?? [];
+      const stmts: D1PreparedStatement[] = [];
+      for (const a of attendees) {
+        const pid = String(a.player_id ?? "").trim();
+        if (!pid) continue;
+        const portions = Math.max(0, Math.trunc(Number(a.portions ?? 0)));
+        const stayed = a.stayed ? 1 : 0;
+        const boughtMeat = a.bought_meat ? 1 : 0;
+        stmts.push(
+          db
+            .prepare(
+              "INSERT INTO asado_attendees (id, asado_id, player_id, portions, stayed, bought_meat) VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            .bind(crypto.randomUUID(), asadoId, pid, portions, stayed, boughtMeat)
+        );
+      }
+      if (stmts.length) await db.batch(stmts);
+
+      return json({ id: asadoId });
+    }
+
     return json({ error: `Ruta no encontrada: ${method} /${path}` }, { status: 404 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error";

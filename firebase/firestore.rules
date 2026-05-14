@@ -26,6 +26,14 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
+    match /asados/{asadoId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /asado_players/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
     match /admins/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;

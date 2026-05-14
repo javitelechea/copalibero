@@ -61,3 +61,28 @@ export type ProfileRow = {
   is_admin: boolean;
   created_at: string;
 };
+
+export type AsadoRow = {
+  id: string;
+  held_at: string;
+  notes: string | null;
+  /** Costo total en pesos (opcional; sirve para la calculadora compartida). */
+  total_cost: number | null;
+  created_at: string;
+};
+
+export type AsadoAttendeeRow = {
+  id: string;
+  asado_id: string;
+  player_id: string;
+  /** Cuántas veces / porciones de asado comió (número entero ≥ 0). */
+  portions: number;
+  /** Si se quedó al asado (entra en el reparto del costo). */
+  stayed: boolean;
+  /** Si compró carne (u otro insumo) para ese día de asado. */
+  bought_meat: boolean;
+};
+
+export type AsadoAttendeeWithPlayer = AsadoAttendeeRow & {
+  player: Pick<PlayerRow, "id" | "display_name" | "avatar_url"> | null;
+};

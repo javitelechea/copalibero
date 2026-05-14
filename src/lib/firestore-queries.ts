@@ -9,6 +9,8 @@ import {
   writeBatch,
 } from "firebase/firestore/lite";
 import {
+  DEMO_ASADO_ATTENDEES,
+  DEMO_ASADOS,
   DEMO_CONFIRMATIONS,
   DEMO_GOALS,
   DEMO_LINEUPS,
@@ -19,6 +21,8 @@ import {
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import type {
+  AsadoAttendeeRow,
+  AsadoRow,
   MatchConfirmationRow,
   MatchGoalRow,
   MatchPlayerRow,
@@ -35,6 +39,8 @@ const C = {
   matchGoals: "match_goals",
   matchConfirmations: "match_confirmations",
   admins: "admins",
+  asados: "asados",
+  asadoPlayers: "asado_players",
 } as const;
 
 async function cfJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -96,6 +102,18 @@ function matchFromDoc(d: { id: string; data: () => Record<string, unknown> }): M
     team_b_score: Number(x.team_b_score ?? 0),
     status: x.status === "scheduled" ? "scheduled" : "played",
     notes: x.notes != null ? String(x.notes) : null,
+    created_at: isoFromField(x.created_at),
+  };
+}
+
+function asadoFromDoc(d: { id: string; data: () => Record<string, unknown> }): AsadoRow {
+  const x = d.data();
+  const tc = x.total_cost;
+  return {
+    id: d.id,
+    held_at: String(x.held_at ?? "").slice(0, 10),
+    notes: x.notes != null ? String(x.notes) : null,
+    total_cost: tc != null && tc !== "" && Number.isFinite(Number(tc)) ? Number(tc) : null,
     created_at: isoFromField(x.created_at),
   };
 }
@@ -277,6 +295,130 @@ export async function fetchMatchById(matchId: string): Promise<MatchWithDetails 
   });
 
   return { ...match, match_players, match_goals };
+}
+
+export async function fetchAsados(): Promise<AsadoRow[]> {
+  if (isOfflineDemoData()) {
+    return [...DEMO_ASADOS].sort((a, b) => b.held_at.localeCompare(a.held_at));
+  }
+  if (isD1Backend()) {
+    const j = await cfJson<{ asados: AsadoRow[] }>("asados");
+    return j.asados;
+  }
+  const db = getFirestoreDb();
+  /** Sin `orderBy` para no exigir índice compuesto; ordenamos en cliente. */
+  const snap = await getDocs(collection(db, C.asados));
+  return snap.docs.map((d) => asadoFromDoc(d)).sort((a, b) => b.held_at.localeCompare(a.held_at));
+}
+
+export async function fetchAsadoAttendees(asadoId: string): Promise<AsadoAttendeeRow[]> {
+  if (isOfflineDemoData()) {
+    return DEMO_ASADO_ATTENDEES.filter((r) => r.asado_id === asadoId);
+  }
+  if (isD1Backend()) {
+    const j = await cfJson<{ rows: AsadoAttendeeRow[] }>(
+      `asado_attendees?asadoId=${encodeURIComponent(asadoId)}`
+    );
+    return j.rows;
+  }
+  const db = getFirestoreDb();
+  const snap = await getDocs(query(collection(db, C.asadoPlayers), where("asado_id", "==", asadoId)));
+  return snap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      asado_id: String(x.asado_id),
+      player_id: String(x.player_id),
+      portions: Math.max(0, Math.trunc(Number(x.portions ?? 0))),
+      stayed: x.stayed === true,
+      bought_meat: x.bought_meat === true,
+    };
+  });
+}
+
+/** Todas las filas de `asado_players` (para la tabla general acumulada). */
+export async function fetchAllAsadoAttendees(): Promise<AsadoAttendeeRow[]> {
+  if (isOfflineDemoData()) {
+    return [...DEMO_ASADO_ATTENDEES];
+  }
+  if (isD1Backend()) {
+    const j = await cfJson<{ rows: AsadoAttendeeRow[] }>("asado_attendees");
+    return j.rows;
+  }
+  const db = getFirestoreDb();
+  const snap = await getDocs(collection(db, C.asadoPlayers));
+  return snap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      asado_id: String(x.asado_id),
+      player_id: String(x.player_id),
+      portions: Math.max(0, Math.trunc(Number(x.portions ?? 0))),
+      stayed: x.stayed === true,
+      bought_meat: x.bought_meat === true,
+    };
+  });
+}
+
+export type SaveAsadoBody = {
+  id?: string | null;
+  held_at: string;
+  notes: string | null;
+  total_cost: number | null;
+  attendees: { player_id: string; portions: number; stayed: boolean; bought_meat: boolean }[];
+};
+
+function asadoPlayerDocId(asadoId: string, playerId: string): string {
+  return `${asadoId}__${playerId}`;
+}
+
+export async function saveAsado(body: SaveAsadoBody): Promise<{ id: string }> {
+  if (isOfflineDemoData()) {
+    throw new Error("Modo demo: conectá Firebase o D1 para guardar asados.");
+  }
+  if (isD1Backend()) {
+    return cfJson<{ id: string }>("asados/save", { method: "POST", body: JSON.stringify(body) });
+  }
+  const db = getFirestoreDb();
+  const id =
+    body.id && String(body.id).trim().length > 0 ? String(body.id) : doc(collection(db, C.asados)).id;
+  const ref = doc(db, C.asados, id);
+  const prev = await getDoc(ref);
+  const heldAt = String(body.held_at).slice(0, 10);
+  const notes = body.notes ?? null;
+  const totalCost =
+    body.total_cost != null && Number.isFinite(Number(body.total_cost)) ? Number(body.total_cost) : null;
+
+  await deleteDocsWhere(C.asadoPlayers, "asado_id", id);
+
+  const batch = writeBatch(db);
+  const base: Record<string, unknown> = {
+    held_at: heldAt,
+    notes,
+    total_cost: totalCost,
+  };
+  if (!prev.exists()) {
+    base.created_at = new Date().toISOString();
+  }
+  batch.set(ref, base, { merge: true });
+
+  for (const a of body.attendees) {
+    const pid = String(a.player_id);
+    if (!pid) continue;
+    const portions = Math.max(0, Math.trunc(Number(a.portions ?? 0)));
+    const stayed = Boolean(a.stayed);
+    const bought_meat = Boolean(a.bought_meat);
+    const rid = asadoPlayerDocId(id, pid);
+    batch.set(doc(db, C.asadoPlayers, rid), {
+      asado_id: id,
+      player_id: pid,
+      portions,
+      stayed,
+      bought_meat,
+    });
+  }
+  await batch.commit();
+  return { id };
 }
 
 export async function isUserAdmin(uid: string): Promise<boolean> {
