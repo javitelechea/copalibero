@@ -18,9 +18,11 @@ type Props = {
   lineups: MatchPlayerRow[];
   players: PlayerRow[];
   standings: StandingRow[];
+  /** Dentro de la tarjeta “Próximo partido”: sin borde propio ni fondo duplicado. */
+  embedded?: boolean;
 };
 
-export function NextMatchTeamDraft({ nextMatch, lineups, players, standings }: Props) {
+export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, embedded = false }: Props) {
   const poolIds = useMemo(
     () => poolPlayerIdsForMatch(lineups, nextMatch.id),
     [lineups, nextMatch.id]
@@ -85,9 +87,11 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings }: P
     });
   }
 
+  const shell = embedded ? "text-sm text-muted" : "rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted shadow-sm";
+
   if (poolIds.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+      <div className={embedded ? "pt-1 text-sm text-muted" : shell}>
         <div className="flex items-center gap-2 font-medium text-fg">
           <Users className="h-4 w-4 shrink-0 text-accent" aria-hidden />
           Armar equipos
@@ -104,7 +108,7 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings }: P
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface px-4 py-3 shadow-sm">
+    <div className={embedded ? "pt-1" : "rounded-2xl border border-border bg-surface px-4 py-3 shadow-sm"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-fg">
           <Users className="h-4 w-4 text-accent" aria-hidden />

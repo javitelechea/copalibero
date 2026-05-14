@@ -127,7 +127,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <section className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
         <div className="flex min-h-0 flex-col gap-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Último partido</h2>
           {lastPlayed ? (
@@ -152,10 +152,10 @@ export default function HomePage() {
         <div className="flex min-h-0 flex-col gap-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Próximo partido</h2>
           {nextMatch ? (
-            <div className="flex min-h-0 flex-col gap-2">
+            <div className="overflow-hidden rounded-2xl border border-accent/30 bg-surface shadow-[var(--shadow-glow)] transition-colors hover:border-accent/50 hover:bg-surface-2">
               <Link
                 href={`/partidos/${nextMatch.id}`}
-                className="flex h-full min-h-[5.5rem] items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-surface px-4 py-4 shadow-[var(--shadow-glow)] transition hover:border-accent/50 hover:bg-surface-2"
+                className="flex min-h-[5.5rem] items-center justify-between gap-3 px-4 py-4 transition hover:bg-surface/80"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-lg font-bold tracking-tight">{formatMatchDayShort(nextMatch.played_at)}</p>
@@ -165,12 +165,15 @@ export default function HomePage() {
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-accent" aria-hidden />
               </Link>
-              <NextMatchTeamDraft
-                nextMatch={nextMatch}
-                lineups={lineupsList}
-                players={playersList}
-                standings={standings}
-              />
+              <div className="border-t border-accent/20 px-3 pb-3 pt-1 sm:px-4">
+                <NextMatchTeamDraft
+                  embedded
+                  nextMatch={nextMatch}
+                  lineups={lineupsList}
+                  players={playersList}
+                  standings={standings}
+                />
+              </div>
             </div>
           ) : (
             <div className="flex min-h-[5.5rem] items-center rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">
