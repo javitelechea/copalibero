@@ -66,13 +66,14 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const url = new URL(request.url);
       const activeOnly = url.searchParams.get("activeOnly") !== "0";
       const q = activeOnly
-        ? "SELECT id, display_name, active, created_at FROM players WHERE active = 1 ORDER BY display_name"
-        : "SELECT id, display_name, active, created_at FROM players ORDER BY display_name";
+        ? "SELECT id, display_name, active, created_at, draft_seed FROM players WHERE active = 1 ORDER BY display_name"
+        : "SELECT id, display_name, active, created_at, draft_seed FROM players ORDER BY display_name";
       const { results } = await db.prepare(q).all<{
         id: string;
         display_name: string;
         active: number;
         created_at: string;
+        draft_seed: number | null;
       }>();
       return json({
         players: (results ?? []).map((r) => ({
@@ -81,6 +82,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           avatar_url: null,
           active: r.active !== 0,
           created_at: r.created_at,
+          draft_seed: r.draft_seed == null || Number.isNaN(Number(r.draft_seed)) ? null : Number(r.draft_seed),
         })),
       });
     }
@@ -89,9 +91,9 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (playerGet && method === "GET") {
       const pid = playerGet[1];
       const row = await db
-        .prepare("SELECT id, display_name, active, created_at FROM players WHERE id = ?")
+        .prepare("SELECT id, display_name, active, created_at, draft_seed FROM players WHERE id = ?")
         .bind(pid)
-        .first<{ id: string; display_name: string; active: number; created_at: string }>();
+        .first<{ id: string; display_name: string; active: number; created_at: string; draft_seed: number | null }>();
       if (!row) return json({ error: "No encontrado" }, { status: 404 });
       return json({
         player: {
@@ -100,6 +102,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           avatar_url: null,
           active: row.active !== 0,
           created_at: row.created_at,
+          draft_seed:
+            row.draft_seed == null || Number.isNaN(Number(row.draft_seed)) ? null : Number(row.draft_seed),
         },
       });
     }
@@ -113,7 +117,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const id = crypto.randomUUID();
       const created = new Date().toISOString();
       await db.prepare("INSERT INTO players (id, display_name, active, created_at) VALUES (?, ?, 1, ?)").bind(id, name, created).run();
-      return json({ id, display_name: name, avatar_url: null, active: true, created_at: created });
+      return json({ id, display_name: name, avatar_url: null, active: true, created_at: created, draft_seed: null });
     }
 
     const playerPatch = path.match(/^players\/([^/]+)$/);
@@ -131,6 +135,14 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       if (typeof body.active === "boolean") {
         sets.push("active = ?");
         vals.push(body.active ? 1 : 0);
+      }
+      if ("draft_seed" in body) {
+        if (body.draft_seed === null || body.draft_seed === undefined) {
+          sets.push("draft_seed = NULL");
+        } else if (typeof body.draft_seed === "number" && Number.isFinite(body.draft_seed)) {
+          sets.push("draft_seed = ?");
+          vals.push(Math.trunc(body.draft_seed));
+        }
       }
       if (sets.length === 0) return json({ error: "Nada para actualizar" }, { status: 400 });
       vals.push(id);

@@ -79,6 +79,7 @@ export function PlayersAdmin() {
         active: true,
         avatar_url: null,
         created_at: new Date().toISOString(),
+        draft_seed: null,
       };
       setPlayers((p) => [...p, created]);
       setNewName("");
@@ -94,9 +95,16 @@ export function PlayersAdmin() {
 
   async function updatePlayer(id: string, patch: Partial<PlayerRow>) {
     if (d1) {
-      const body: Partial<Pick<PlayerRow, "display_name" | "active">> = {};
+      const body: Partial<Pick<PlayerRow, "display_name" | "active" | "draft_seed">> = {};
       if (typeof patch.display_name === "string") body.display_name = patch.display_name;
       if (typeof patch.active === "boolean") body.active = patch.active;
+      if ("draft_seed" in patch) {
+        if (patch.draft_seed === null || patch.draft_seed === undefined) {
+          body.draft_seed = null;
+        } else if (typeof patch.draft_seed === "number" && Number.isFinite(patch.draft_seed)) {
+          body.draft_seed = Math.trunc(patch.draft_seed);
+        }
+      }
       if (Object.keys(body).length === 0) return;
       await d1UpdatePlayer(id, body);
       setPlayers((list) => list.map((p) => (p.id === id ? { ...p, ...body } : p)));
@@ -226,6 +234,29 @@ export function PlayersAdmin() {
                     className="size-4 rounded border-border accent-accent"
                   />
                   Activo en el torneo
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  <span>Prioridad borrador (opcional: número menor = antes si empata en la tabla)</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Vacío = automático"
+                    defaultValue={p.draft_seed ?? ""}
+                    key={`seed-${p.id}-${p.draft_seed ?? "x"}`}
+                    disabled={offlineDemo}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim();
+                      if (raw === "") {
+                        if (p.draft_seed != null) void updatePlayer(p.id, { draft_seed: null });
+                        return;
+                      }
+                      const n = Number(raw);
+                      if (!Number.isFinite(n)) return;
+                      const v = Math.trunc(n);
+                      if (v !== (p.draft_seed ?? null)) void updatePlayer(p.id, { draft_seed: v });
+                    }}
+                    className="min-h-[40px] w-full max-w-[12rem] rounded-lg border border-border bg-surface-2 px-3 py-2 tabular-nums outline-none focus:border-accent/50"
+                  />
                 </label>
                 {!d1 ? (
                 <label className="mt-1 flex cursor-pointer flex-wrap items-center gap-2 text-sm text-accent">

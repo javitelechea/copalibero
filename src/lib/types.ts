@@ -13,6 +13,8 @@ export type PlayerRow = {
   avatar_url: string | null;
   active: boolean;
   created_at: string;
+  /** Opcional: menor = prioridad en borrador si empata con la tabla (p. ej. nunca jugó). */
+  draft_seed?: number | null;
 };
 
 export type MatchRow = {

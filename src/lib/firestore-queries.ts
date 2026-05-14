@@ -63,12 +63,21 @@ function isoFromField(v: unknown): string {
 
 function playerFromDoc(d: { id: string; data: () => Record<string, unknown> }): PlayerRow {
   const x = d.data();
+  const rawSeed = x.draft_seed;
+  let draft_seed: number | null | undefined;
+  if (rawSeed == null) draft_seed = undefined;
+  else if (typeof rawSeed === "number" && Number.isFinite(rawSeed)) draft_seed = rawSeed;
+  else if (typeof rawSeed === "string" && rawSeed.trim() !== "") {
+    const n = Number(rawSeed);
+    draft_seed = Number.isFinite(n) ? n : undefined;
+  } else draft_seed = undefined;
   return {
     id: d.id,
     display_name: String(x.display_name ?? ""),
     avatar_url: x.avatar_url != null ? String(x.avatar_url) : null,
     active: x.active !== false,
     created_at: isoFromField(x.created_at),
+    ...(draft_seed !== undefined ? { draft_seed } : {}),
   };
 }
 
@@ -330,7 +339,7 @@ export async function d1CreatePlayer(display_name: string): Promise<PlayerRow> {
 
 export async function d1UpdatePlayer(
   id: string,
-  patch: Partial<Pick<PlayerRow, "display_name" | "active">>
+  patch: Partial<Pick<PlayerRow, "display_name" | "active" | "draft_seed">>
 ): Promise<void> {
   await cfJson(`players/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
