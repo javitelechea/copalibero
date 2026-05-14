@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MatchTeamDraftAdminSection } from "@/components/MatchTeamDraftAdminSection";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
@@ -168,6 +169,8 @@ export default function PartidoDetailPage() {
           </ul>
         )}
       </section>
+
+      <MatchTeamDraftAdminSection match={match} />
 
       {match.notes && (
         <p className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-muted">

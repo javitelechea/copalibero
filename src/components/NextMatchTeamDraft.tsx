@@ -18,7 +18,7 @@ type Props = {
   lineups: MatchPlayerRow[];
   players: PlayerRow[];
   standings: StandingRow[];
-  /** Dentro de la tarjeta “Próximo partido”: sin borde propio ni fondo duplicado. */
+  /** Sin borde propio ni fondo duplicado cuando va dentro de otra tarjeta. */
   embedded?: boolean;
 };
 

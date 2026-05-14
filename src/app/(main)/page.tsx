@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChampionHistoria2025 } from "@/components/ChampionHistoria2025";
-import { NextMatchTeamDraft } from "@/components/NextMatchTeamDraft";
 import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
@@ -17,7 +16,7 @@ import {
 } from "@/lib/firestore-queries";
 import { formatMatchDayShort, pickLastPlayedMatch, pickNextScheduledMatch } from "@/lib/next-match";
 import { computeStandings } from "@/lib/scoring";
-import type { MatchPlayerRow, MatchRow, PlayerRow } from "@/lib/types";
+import type { MatchRow } from "@/lib/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function HomePage() {
@@ -25,8 +24,6 @@ export default function HomePage() {
   const [recent, setRecent] = useState<MatchRow[]>([]);
   const [lastPlayed, setLastPlayed] = useState<MatchRow | null>(null);
   const [nextMatch, setNextMatch] = useState<MatchRow | null>(null);
-  const [playersList, setPlayersList] = useState<PlayerRow[]>([]);
-  const [lineupsList, setLineupsList] = useState<MatchPlayerRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(canUsePublicApp);
 
@@ -43,8 +40,6 @@ export default function HomePage() {
           fetchConfirmations(),
         ]);
         if (cancelled) return;
-        setPlayersList(players);
-        setLineupsList(lineups);
         setStandings(computeStandings(players, matches, lineups, goals, confirmations));
         setRecent(matches.filter((m) => m.status === "played").slice(0, 3));
         setLastPlayed(pickLastPlayedMatch(matches));
@@ -152,29 +147,18 @@ export default function HomePage() {
         <div className="flex min-h-0 flex-col gap-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Próximo partido</h2>
           {nextMatch ? (
-            <div className="overflow-hidden rounded-2xl border border-accent/30 bg-surface shadow-[var(--shadow-glow)] transition-colors hover:border-accent/50 hover:bg-surface-2">
-              <Link
-                href={`/partidos/${nextMatch.id}`}
-                className="flex min-h-[5.5rem] items-center justify-between gap-3 px-4 py-4 transition hover:bg-surface/80"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-lg font-bold tracking-tight">{formatMatchDayShort(nextMatch.played_at)}</p>
-                  {nextMatch.notes ? (
-                    <p className="mt-0.5 line-clamp-2 text-sm text-muted">{nextMatch.notes}</p>
-                  ) : null}
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-accent" aria-hidden />
-              </Link>
-              <div className="border-t border-accent/20 px-3 pb-3 pt-1 sm:px-4">
-                <NextMatchTeamDraft
-                  embedded
-                  nextMatch={nextMatch}
-                  lineups={lineupsList}
-                  players={playersList}
-                  standings={standings}
-                />
+            <Link
+              href={`/partidos/${nextMatch.id}`}
+              className="flex h-full min-h-[5.5rem] items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-surface px-4 py-4 shadow-[var(--shadow-glow)] transition hover:border-accent/50 hover:bg-surface-2"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold tracking-tight">{formatMatchDayShort(nextMatch.played_at)}</p>
+                {nextMatch.notes ? (
+                  <p className="mt-0.5 line-clamp-2 text-sm text-muted">{nextMatch.notes}</p>
+                ) : null}
               </div>
-            </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-accent" aria-hidden />
+            </Link>
           ) : (
             <div className="flex min-h-[5.5rem] items-center rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">
               No hay partidos programados.
