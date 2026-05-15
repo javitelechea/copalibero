@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
+import { totalAsadoPointsByPlayer } from "@/lib/asado-points";
 import {
+  fetchAllAsadoAttendees,
   fetchConfirmations,
   fetchMatchGoals,
   fetchMatchLineups,
@@ -32,17 +34,20 @@ export default function JugadorPage() {
     if (!id || !canUsePublicApp()) return;
     let cancelled = false;
     void (async () => {
-      const [p, allPlayers, m, lu, g, conf] = await Promise.all([
+      const [p, allPlayers, m, lu, g, conf, asadoRows] = await Promise.all([
         fetchPlayerById(id),
         fetchPlayers(true),
         fetchMatches(),
         fetchMatchLineups(),
         fetchMatchGoals(),
         fetchConfirmations(),
+        fetchAllAsadoAttendees(),
       ]);
       if (cancelled) return;
       setPlayer(p);
-      setStandings(computeStandings(allPlayers, m, lu, g, conf));
+      setStandings(
+        computeStandings(allPlayers, m, lu, g, conf, totalAsadoPointsByPlayer(asadoRows))
+      );
       setMatches(m);
       setLineups(lu);
       setGoals(g);
@@ -117,8 +122,8 @@ export default function JugadorPage() {
           )}
           {mine && (
             <p className="text-sm text-muted">
-              {mine.played} partidos · {mine.goals} goles · {mine.wins}V {mine.draws}E {mine.losses}D · Bonus:{" "}
-              {mine.bonus}
+              {mine.played} partidos · {mine.goals} goles · Asado {mine.asado_points} pts (desempate) ·{" "}
+              {mine.wins}V {mine.draws}E {mine.losses}D · Bonus: {mine.bonus}
               {mine.noShowPenalties > 0 && (
                 <span className="text-amber-400">
                   {" "}

@@ -16,3 +16,12 @@ export function asadoPointsForRow(r: AsadoAttendeeRow): number {
     (r.postre ? ASADO_POINTS.postre : 0)
   );
 }
+
+/** Suma de puntos de asado por jugador (todas las fechas). */
+export function totalAsadoPointsByPlayer(attendees: AsadoAttendeeRow[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of attendees) {
+    m.set(r.player_id, (m.get(r.player_id) ?? 0) + asadoPointsForRow(r));
+  }
+  return m;
+}

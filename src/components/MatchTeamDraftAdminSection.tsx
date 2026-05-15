@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { NextMatchTeamDraft } from "@/components/NextMatchTeamDraft";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { totalAsadoPointsByPlayer } from "@/lib/asado-points";
 import {
+  fetchAllAsadoAttendees,
   fetchConfirmations,
   fetchMatchGoals,
   fetchMatchLineups,
@@ -30,12 +32,13 @@ export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails 
       fetchMatchLineups(),
       fetchMatchGoals(),
       fetchConfirmations(),
+      fetchAllAsadoAttendees(),
     ])
-      .then(([pl, ms, ln, gl, cf]) => {
+      .then(([pl, ms, ln, gl, cf, asadoRows]) => {
         if (cancelled) return;
         setPlayers(pl);
         setLineups(ln);
-        setStandings(computeStandings(pl, ms, ln, gl, cf));
+        setStandings(computeStandings(pl, ms, ln, gl, cf, totalAsadoPointsByPlayer(asadoRows)));
         setLoaded(true);
       })
       .catch(() => {

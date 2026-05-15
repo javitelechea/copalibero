@@ -139,8 +139,9 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
         </div>
       </div>
       <p className="mt-1 text-xs text-muted">
-        Borrador orientativo: el orden sigue puntos / goles / victorias de la tabla; si empatan, cuenta la
-        prioridad que cargue el admin en el jugador. Para confirmar equipos reales usá el panel del partido.
+        Borrador orientativo: el orden sigue puntos, goles, puntos de asado y victorias de la tabla; si empatan,
+        cuenta la prioridad que cargue el admin en el jugador. Para confirmar equipos reales usá el panel del
+        partido.
       </p>
 
       <ul className="mt-3 flex flex-col gap-1.5">

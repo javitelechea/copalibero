@@ -7,7 +7,9 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
+import { totalAsadoPointsByPlayer } from "@/lib/asado-points";
 import {
+  fetchAllAsadoAttendees,
   fetchConfirmations,
   fetchMatchGoals,
   fetchMatchLineups,
@@ -32,15 +34,17 @@ export default function HomePage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, lineups, goals, confirmations] = await Promise.all([
+        const [players, matches, lineups, goals, confirmations, asadoAttendees] = await Promise.all([
           fetchPlayers(true),
           fetchMatches(),
           fetchMatchLineups(),
           fetchMatchGoals(),
           fetchConfirmations(),
+          fetchAllAsadoAttendees(),
         ]);
         if (cancelled) return;
-        setStandings(computeStandings(players, matches, lineups, goals, confirmations));
+        const asadoMap = totalAsadoPointsByPlayer(asadoAttendees);
+        setStandings(computeStandings(players, matches, lineups, goals, confirmations, asadoMap));
         setRecent(matches.filter((m) => m.status === "played").slice(0, 3));
         setLastPlayed(pickLastPlayedMatch(matches));
         setNextMatch(pickNextScheduledMatch(matches));
@@ -189,6 +193,12 @@ export default function HomePage() {
                   <th className="w-7 px-0 py-2 text-center sm:w-8">PP</th>
                   <th className="w-7 px-0 py-2 text-center sm:w-8">G</th>
                   <th className="w-7 px-0 py-2 text-center sm:w-8">B</th>
+                  <th
+                    className="w-7 px-0 py-2 text-center sm:w-8"
+                    title="Puntos de asado (no suman al total; desempate si empatan puntos y goles)"
+                  >
+                    As
+                  </th>
                   <th className="w-8 px-0.5 py-2 pr-1 text-center text-accent sm:w-9">Pts</th>
                 </tr>
               </thead>
@@ -224,6 +234,12 @@ export default function HomePage() {
                     <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.losses}</td>
                     <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.goals}</td>
                     <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.bonus}</td>
+                    <td
+                      className="px-0 py-1.5 text-center align-middle tabular-nums text-muted sm:py-2"
+                      title="Puntos asado (desempate)"
+                    >
+                      {row.asado_points}
+                    </td>
                     <td className="px-0.5 py-1.5 pr-1 text-center align-middle text-sm font-black tabular-nums text-accent sm:py-2 sm:text-base">
                       {row.points}
                     </td>

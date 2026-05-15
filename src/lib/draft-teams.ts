@@ -18,7 +18,7 @@ export function poolPlayerIdsForMatch(lineups: MatchPlayerRow[], matchId: string
 }
 
 /**
- * Orden “mejor → peor” alineado a la tabla: puntos, goles, victorias;
+ * Orden “mejor → peor” alineado a la tabla: puntos, goles, puntos asado, victorias;
  * si todo empata, `draft_seed` ascendente (menor = antes) y luego nombre.
  */
 export function sortPlayersForTeamDraft(players: PlayerRow[], standings: StandingRow[]): PlayerRow[] {
@@ -32,6 +32,9 @@ export function sortPlayersForTeamDraft(players: PlayerRow[], standings: Standin
     const ga = sa?.goals ?? 0;
     const gb = sb?.goals ?? 0;
     if (gb !== ga) return gb - ga;
+    const aa = sa?.asado_points ?? 0;
+    const ab = sb?.asado_points ?? 0;
+    if (ab !== aa) return ab - aa;
     const wa = sa?.wins ?? 0;
     const wb = sb?.wins ?? 0;
     if (wb !== wa) return wb - wa;

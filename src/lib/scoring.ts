@@ -35,9 +35,11 @@ export type StandingRow = {
   noShowPenalties: number;
   /** Puntos extra por victorias con diferencia ≥ `SCORING.bigWinMarginMin` goles. */
   bonus: number;
+  /** Puntos del torneo de asado (no suman a `points`; desempate tras goles). */
+  asado_points: number;
 };
 
-type StandingAccum = Omit<StandingRow, "player"> & { playerId: string };
+type StandingAccum = Omit<StandingRow, "player" | "asado_points"> & { playerId: string };
 
 function outcomeForTeam(
   match: MatchRow,
@@ -59,13 +61,15 @@ function matchPointsForOutcome(outcome: "win" | "draw" | "loss"): number {
 
 /**
  * Calcula la tabla a partir de partidos jugados, nóminas, goles y confirmaciones.
+ * `asadoPointsByPlayer`: puntos acumulados de asado por `player_id` (no alteran `points`).
  */
 export function computeStandings(
   players: PlayerRow[],
   matches: MatchRow[],
   lineups: MatchPlayerRow[],
   goals: MatchGoalRow[],
-  confirmations: { match_id: string; player_id: string; status: ConfirmationStatus }[]
+  confirmations: { match_id: string; player_id: string; status: ConfirmationStatus }[],
+  asadoPointsByPlayer: ReadonlyMap<string, number> = new Map()
 ): StandingRow[] {
   const playedMatches = matches.filter((m) => m.status === "played");
   const lineupSet = new Set(
@@ -159,12 +163,14 @@ export function computeStandings(
       presence: s.presence,
       noShowPenalties: s.noShowPenalties,
       bonus: s.bonus,
+      asado_points: asadoPointsByPlayer.get(p.id) ?? 0,
     });
   }
 
   list.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.goals !== a.goals) return b.goals - a.goals;
+    if (b.asado_points !== a.asado_points) return b.asado_points - a.asado_points;
     if (b.wins !== a.wins) return b.wins - a.wins;
     return a.player.display_name.localeCompare(b.player.display_name);
   });
