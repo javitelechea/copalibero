@@ -181,25 +181,54 @@ export default function HomePage() {
             Todavía no hay partidos cargados.
           </p>
         ) : (
-          <div className="rounded-2xl border border-border bg-surface shadow-sm">
-            <table className="w-full table-fixed border-collapse text-[0.7rem] leading-tight sm:text-xs">
+          <div className="w-full min-w-0 rounded-2xl border border-border bg-surface shadow-sm">
+            <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.55vw,0.75rem)] leading-tight sm:text-xs">
+              <colgroup>
+                <col style={{ width: "5.5%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "7.5625%" }} />
+              </colgroup>
               <thead>
-                <tr className="border-b border-border bg-surface-2 text-[0.6rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
-                  <th className="w-7 px-0.5 py-2 text-center sm:w-8">#</th>
-                  <th className="min-w-0 px-1 py-2 text-left">Jugador</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">PJ</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">PG</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">PE</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">PP</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">G</th>
-                  <th className="w-7 px-0 py-2 text-center sm:w-8">B</th>
+                <tr className="border-b border-border bg-surface-2 text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
+                  <th className="px-0 py-1.5 text-center sm:py-2">#</th>
+                  <th className="min-w-0 px-0.5 py-1.5 text-left sm:px-1 sm:py-2">
+                    <span className="sm:hidden">Jug</span>
+                    <span className="hidden sm:inline">Jugador</span>
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Partidos jugados">
+                    PJ
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Ganados">
+                    PG
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Empatados">
+                    PE
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Perdidos">
+                    PP
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Goles">
+                    G
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Bonus">
+                    B
+                  </th>
                   <th
-                    className="w-7 px-0 py-2 text-center sm:w-8"
+                    className="px-0 py-1.5 text-center sm:py-2"
                     title="Puntos de asado (no suman al total; desempate si empatan puntos y goles)"
                   >
                     As
                   </th>
-                  <th className="w-8 px-0.5 py-2 pr-1 text-center text-accent sm:w-9">Pts</th>
+                  <th className="px-0 py-1.5 text-center text-accent sm:py-2" title="Puntos torneo">
+                    Pts
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -208,39 +237,40 @@ export default function HomePage() {
                     key={row.player.id}
                     className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2/60"
                   >
-                    <td className="px-0.5 py-1.5 text-center align-middle tabular-nums text-muted sm:py-2">
+                    <td className="px-0 py-1 text-center align-middle tabular-nums text-muted sm:py-1.5">
                       {i + 1}
                     </td>
-                    <td className="min-w-0 px-1 py-1.5 align-middle sm:py-2">
+                    <td className="min-w-0 px-0.5 py-1 align-middle sm:px-1 sm:py-1.5">
                       <Link
                         href={`/jugadores/${row.player.id}`}
-                        className="flex min-w-0 items-center gap-1.5 active:opacity-90 sm:gap-2"
+                        className="flex min-w-0 items-center gap-1 active:opacity-90 sm:gap-1.5"
                       >
                         <PlayerAvatar
                           name={row.player.display_name}
                           url={row.player.avatar_url}
-                          size={28}
+                          size={22}
+                          className="text-[10px] sm:text-sm"
                         />
                         <span className="min-w-0 truncate font-medium sm:font-semibold">
                           {row.player.display_name}
                         </span>
                       </Link>
                     </td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums text-muted sm:py-2">
+                    <td className="px-0 py-1 text-center align-middle tabular-nums text-muted sm:py-1.5">
                       {row.played}
                     </td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.wins}</td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.draws}</td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.losses}</td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.goals}</td>
-                    <td className="px-0 py-1.5 text-center align-middle tabular-nums sm:py-2">{row.bonus}</td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.wins}</td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.draws}</td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.losses}</td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.goals}</td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.bonus}</td>
                     <td
-                      className="px-0 py-1.5 text-center align-middle tabular-nums text-muted sm:py-2"
+                      className="px-0 py-1 text-center align-middle tabular-nums text-muted sm:py-1.5"
                       title="Puntos asado (desempate)"
                     >
                       {row.asado_points}
                     </td>
-                    <td className="px-0.5 py-1.5 pr-1 text-center align-middle text-sm font-black tabular-nums text-accent sm:py-2 sm:text-base">
+                    <td className="px-0 py-1 text-center align-middle font-black tabular-nums text-accent sm:py-1.5 sm:text-sm">
                       {row.points}
                     </td>
                   </tr>

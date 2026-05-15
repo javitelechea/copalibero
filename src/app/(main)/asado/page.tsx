@@ -58,8 +58,6 @@ export default function AsadoPage() {
     const acc = new Map<
       string,
       {
-        portions: number;
-        days: Set<string>;
         meatTimes: number;
         stayedTimes: number;
         panTimes: number;
@@ -70,16 +68,12 @@ export default function AsadoPage() {
     for (const r of allAttendees) {
       const cur =
         acc.get(r.player_id) ?? {
-          portions: 0,
-          days: new Set<string>(),
           meatTimes: 0,
           stayedTimes: 0,
           panTimes: 0,
           postreTimes: 0,
           points: 0,
         };
-      cur.portions += r.portions;
-      cur.days.add(r.asado_id);
       if (r.bought_meat) cur.meatTimes += 1;
       if (r.stayed) cur.stayedTimes += 1;
       if (r.panificado) cur.panTimes += 1;
@@ -91,8 +85,6 @@ export default function AsadoPage() {
       const t = acc.get(p.id);
       return {
         player: p,
-        totalPortions: t?.portions ?? 0,
-        daysCount: t?.days.size ?? 0,
         meatTimes: t?.meatTimes ?? 0,
         stayedTimes: t?.stayedTimes ?? 0,
         panTimes: t?.panTimes ?? 0,
@@ -104,6 +96,8 @@ export default function AsadoPage() {
       if (b.asadoPoints !== a.asadoPoints) return b.asadoPoints - a.asadoPoints;
       if (b.stayedTimes !== a.stayedTimes) return b.stayedTimes - a.stayedTimes;
       if (b.meatTimes !== a.meatTimes) return b.meatTimes - a.meatTimes;
+      if (b.panTimes !== a.panTimes) return b.panTimes - a.panTimes;
+      if (b.postreTimes !== a.postreTimes) return b.postreTimes - a.postreTimes;
       return a.player.display_name.localeCompare(b.player.display_name);
     });
     return rows;
@@ -228,48 +222,71 @@ export default function AsadoPage() {
         <div className="border-b border-border bg-surface-2 px-4 py-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Tabla general de asados</h2>
           <p className="mt-1 text-xs text-muted">
-            <strong>Pts</strong>: por fecha, 1 si se quedó + 1 por cada aporte (carne, panificado, postre). Las
-            porciones no suman. Orden por Pts, después por veces que se quedó.
+            <strong>Pts</strong>: suma 1 si se quedó + 1 por carne, panificado o postre en cada fecha. Columnas:
+            veces en cada categoría. Orden por Pts y desempates por esas columnas.
           </p>
         </div>
-        <div className="overflow-x-auto p-2 sm:p-3">
-          <table className="w-full min-w-[520px] border-collapse text-sm">
+        <div className="w-full min-w-0 p-1 sm:p-3">
+          <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.45vw,0.875rem)] leading-tight sm:text-sm">
+            <colgroup>
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "34%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
             <thead>
-              <tr className="border-b border-border text-left text-xs font-bold uppercase tracking-wide text-muted">
-                <th className="w-10 px-1 py-2 text-center">#</th>
-                <th className="px-2 py-2">Jugador</th>
-                <th className="w-12 px-0.5 py-2 text-center text-accent">Pts</th>
-                <th className="w-14 px-0.5 py-2 text-center">Porc.</th>
-                <th className="w-12 px-0.5 py-2 text-center">Días</th>
-                <th className="w-12 px-0.5 py-2 text-center">Quedó</th>
-                <th className="w-12 px-0.5 py-2 text-center">Carne</th>
-                <th className="w-14 px-0.5 py-2 text-center">Pan.</th>
-                <th className="w-12 px-0.5 py-2 text-center">Post.</th>
+              <tr className="border-b border-border text-left text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-xs">
+                <th className="px-0 py-1.5 text-center sm:py-2">#</th>
+                <th className="min-w-0 px-0.5 py-1.5 sm:px-1 sm:py-2">
+                  <span className="sm:hidden">Jug</span>
+                  <span className="hidden sm:inline">Jugador</span>
+                </th>
+                <th className="px-0 py-1.5 text-center text-accent sm:py-2" title="Puntos asado">
+                  Pts
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Se quedó">
+                  <span className="sm:hidden">St</span>
+                  <span className="hidden sm:inline">Se quedó</span>
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Carne">
+                  <span className="sm:hidden">Cr</span>
+                  <span className="hidden sm:inline">Carne</span>
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Panificado">
+                  <span className="sm:hidden">Pan</span>
+                  <span className="hidden sm:inline">Panificado</span>
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Postre">
+                  <span className="sm:hidden">Po</span>
+                  <span className="hidden sm:inline">Postre</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.map((row, i) => (
                 <tr key={row.player.id} className="border-b border-border/70 last:border-b-0">
-                  <td className="px-1 py-2 text-center tabular-nums text-muted">{i + 1}</td>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-2">
+                  <td className="px-0 py-1 text-center tabular-nums text-muted sm:py-2">{i + 1}</td>
+                  <td className="min-w-0 px-0.5 py-1 sm:px-1 sm:py-2">
+                    <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                       <PlayerAvatar
                         name={row.player.display_name}
                         url={row.player.avatar_url}
-                        size={32}
+                        size={22}
+                        className="text-[10px] sm:text-sm"
                       />
-                      <span className="font-medium">{row.player.display_name}</span>
+                      <span className="min-w-0 truncate font-medium">{row.player.display_name}</span>
                     </div>
                   </td>
-                  <td className="px-0.5 py-2 text-center text-sm font-black tabular-nums text-accent">
+                  <td className="px-0 py-1 text-center font-black tabular-nums text-accent sm:py-2">
                     {row.asadoPoints}
                   </td>
-                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.totalPortions}</td>
-                  <td className="px-0.5 py-2 text-center tabular-nums text-muted">{row.daysCount}</td>
-                  <td className="px-0.5 py-2 text-center tabular-nums text-muted">{row.stayedTimes}</td>
-                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.meatTimes}</td>
-                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.panTimes}</td>
-                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.postreTimes}</td>
+                  <td className="px-0 py-1 text-center tabular-nums text-muted sm:py-2">{row.stayedTimes}</td>
+                  <td className="px-0 py-1 text-center font-semibold tabular-nums text-fg sm:py-2">{row.meatTimes}</td>
+                  <td className="px-0 py-1 text-center font-semibold tabular-nums text-fg sm:py-2">{row.panTimes}</td>
+                  <td className="px-0 py-1 text-center font-semibold tabular-nums text-fg sm:py-2">{row.postreTimes}</td>
                 </tr>
               ))}
             </tbody>

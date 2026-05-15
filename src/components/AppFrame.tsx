@@ -18,7 +18,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </span>
         </Link>
       </header>
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-28 pt-1">
+      <main className="mx-auto flex w-full min-w-0 max-w-lg flex-1 flex-col px-4 pb-28 pt-1">
         {children}
       </main>
       <BottomNav />

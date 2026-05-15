@@ -345,17 +345,50 @@ export default function AsadoDiaPage() {
           Puntos del torneo de asado: 1 por &quot;Se quedó&quot;, 1 más por cada aporte (carne, panificado, postre).
           Las porciones no suman puntos.
         </p>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border/80">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
+        <div className="mt-4 w-full min-w-0 rounded-xl border border-border/80">
+          <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.4vw,0.875rem)] leading-tight sm:text-sm">
+            {ready && isAdmin ? (
+              <colgroup>
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "12%" }} />
+              </colgroup>
+            ) : (
+              <colgroup>
+                <col style={{ width: "40%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+              </colgroup>
+            )}
             <thead>
-              <tr className="border-b border-border bg-surface-2 text-left text-xs font-bold uppercase tracking-wide text-muted">
-                <th className="px-3 py-2">Jugador</th>
-                <th className="w-20 px-1 py-2 text-center">Porc.</th>
-                <th className="w-24 px-1 py-2 text-center">Se quedó</th>
-                <th className="w-24 px-1 py-2 text-center">Carne</th>
-                <th className="w-28 px-1 py-2 text-center">Panificado</th>
-                <th className="w-24 px-1 py-2 text-center">Postre</th>
-                {ready && isAdmin ? <th className="w-12 py-2" /> : null}
+              <tr className="border-b border-border bg-surface-2 text-left text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-xs">
+                <th className="min-w-0 px-1 py-1.5 sm:px-2 sm:py-2">
+                  <span className="sm:hidden">Jug</span>
+                  <span className="hidden sm:inline">Jugador</span>
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Porciones">
+                  Pr
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Se quedó">
+                  St
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Carne">
+                  Cr
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Panificado">
+                  Pan
+                </th>
+                <th className="px-0 py-1.5 text-center sm:py-2" title="Postre">
+                  Po
+                </th>
+                {ready && isAdmin ? <th className="px-0 py-1.5 sm:py-2" /> : null}
               </tr>
             </thead>
             <tbody>
@@ -368,17 +401,18 @@ export default function AsadoDiaPage() {
               ) : (
                 rowsWithPlayer.map((r) => (
                   <tr key={r.player_id} className="border-b border-border/60 last:border-b-0">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
+                    <td className="min-w-0 px-1 py-1 sm:py-1.5">
+                      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                         <PlayerAvatar
                           name={r.player?.display_name ?? "?"}
                           url={r.player?.avatar_url ?? null}
-                          size={32}
+                          size={22}
+                          className="text-[10px] sm:text-sm"
                         />
-                        <span className="truncate font-medium">{r.player?.display_name ?? r.player_id}</span>
+                        <span className="min-w-0 truncate font-medium">{r.player?.display_name ?? r.player_id}</span>
                       </div>
                     </td>
-                    <td className="px-1 py-2 text-center tabular-nums">
+                    <td className="px-0 py-1 text-center tabular-nums sm:py-1.5">
                       {ready && isAdmin && !isOfflineDemoData() ? (
                         <input
                           type="number"
@@ -387,7 +421,7 @@ export default function AsadoDiaPage() {
                           key={`p-${selectedAsado.id}-${r.player_id}-${r.portions}`}
                           defaultValue={r.portions}
                           disabled={busy}
-                          className="w-16 rounded-lg border border-border bg-surface px-2 py-1 text-center"
+                          className="box-border w-full max-w-[2.75rem] rounded-md border border-border bg-surface px-0.5 py-0.5 text-center text-[inherit] sm:max-w-[4rem] sm:px-2 sm:py-1"
                           onBlur={(e) => {
                             const v = Math.max(0, Math.trunc(Number(e.target.value) || 0));
                             if (v !== r.portions) updateAttendee(r.player_id, { portions: v });
@@ -397,17 +431,17 @@ export default function AsadoDiaPage() {
                         r.portions
                       )}
                     </td>
-                    <td className="px-1 py-2 text-center">
+                    <td className="px-0 py-1 text-center sm:py-1.5">
                       {ready && isAdmin && !isOfflineDemoData() ? (
-                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-muted">
                           <input
                             type="checkbox"
                             checked={r.stayed}
                             disabled={busy}
                             onChange={(e) => updateAttendee(r.player_id, { stayed: e.target.checked })}
-                            className="size-5 accent-accent"
+                            className="size-4 accent-accent sm:size-5"
                           />
-                          <span>1 pt</span>
+                          <span className="hidden text-[0.6rem] sm:inline">1 pt</span>
                         </label>
                       ) : r.stayed ? (
                         <span className="text-accent">Sí</span>
@@ -415,9 +449,9 @@ export default function AsadoDiaPage() {
                         <span className="text-muted">No</span>
                       )}
                     </td>
-                    <td className="px-1 py-2 text-center">
+                    <td className="px-0 py-1 text-center sm:py-1.5">
                       {ready && isAdmin && !isOfflineDemoData() ? (
-                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-muted">
                           <input
                             type="checkbox"
                             checked={r.bought_meat}
@@ -425,9 +459,9 @@ export default function AsadoDiaPage() {
                             onChange={(e) =>
                               updateAttendee(r.player_id, { bought_meat: e.target.checked })
                             }
-                            className="size-5 accent-accent"
+                            className="size-4 accent-accent sm:size-5"
                           />
-                          <span>+1 pt</span>
+                          <span className="hidden text-[0.6rem] sm:inline">+1</span>
                         </label>
                       ) : r.bought_meat ? (
                         <span className="text-accent">Sí</span>
@@ -435,9 +469,9 @@ export default function AsadoDiaPage() {
                         <span className="text-muted">No</span>
                       )}
                     </td>
-                    <td className="px-1 py-2 text-center">
+                    <td className="px-0 py-1 text-center sm:py-1.5">
                       {ready && isAdmin && !isOfflineDemoData() ? (
-                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-muted">
                           <input
                             type="checkbox"
                             checked={r.panificado}
@@ -445,9 +479,9 @@ export default function AsadoDiaPage() {
                             onChange={(e) =>
                               updateAttendee(r.player_id, { panificado: e.target.checked })
                             }
-                            className="size-5 accent-accent"
+                            className="size-4 accent-accent sm:size-5"
                           />
-                          <span>+1 pt</span>
+                          <span className="hidden text-[0.6rem] sm:inline">+1</span>
                         </label>
                       ) : r.panificado ? (
                         <span className="text-accent">Sí</span>
@@ -455,17 +489,17 @@ export default function AsadoDiaPage() {
                         <span className="text-muted">No</span>
                       )}
                     </td>
-                    <td className="px-1 py-2 text-center">
+                    <td className="px-0 py-1 text-center sm:py-1.5">
                       {ready && isAdmin && !isOfflineDemoData() ? (
-                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-muted">
                           <input
                             type="checkbox"
                             checked={r.postre}
                             disabled={busy}
                             onChange={(e) => updateAttendee(r.player_id, { postre: e.target.checked })}
-                            className="size-5 accent-accent"
+                            className="size-4 accent-accent sm:size-5"
                           />
-                          <span>+1 pt</span>
+                          <span className="hidden text-[0.6rem] sm:inline">+1</span>
                         </label>
                       ) : r.postre ? (
                         <span className="text-accent">Sí</span>
@@ -474,19 +508,19 @@ export default function AsadoDiaPage() {
                       )}
                     </td>
                     {ready && isAdmin && !isOfflineDemoData() ? (
-                      <td className="py-2 pr-2 text-right">
+                      <td className="py-1 pr-1 text-right sm:py-1.5 sm:pr-2">
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => removeAttendee(r.player_id)}
-                          className="rounded-lg p-2 text-muted hover:bg-red-500/10 hover:text-red-300"
+                          className="rounded-lg p-1.5 text-muted hover:bg-red-500/10 hover:text-red-300 sm:p-2"
                           aria-label={`Quitar ${r.player?.display_name ?? "jugador"}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>
                       </td>
                     ) : ready && isAdmin ? (
-                      <td className="py-2 pr-2" />
+                      <td className="py-1 pr-1 sm:py-1.5 sm:pr-2" />
                     ) : null}
                   </tr>
                 ))
