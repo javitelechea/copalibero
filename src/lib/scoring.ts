@@ -9,15 +9,17 @@ import type {
 
 /** Puntos por reglas del torneo — ajustá acá */
 export const SCORING = {
+  /** Punto por estar en la nómina del partido jugado */
   presence: 1,
+  /** Puntos extra por victoria (los goles no suman puntos; van a goleadores y al desempate) */
   win: 3,
+  /** Puntos extra por empate (además de presencia) */
   draw: 1,
   loss: 0,
-  goal: 1,
   /** Confirmó y no fue al partido (no está en nómina) */
   noShowAfterConfirm: -2,
-  /** Suma `bigWinBonus` si el partido se gana por más de esta diferencia de goles (p. ej. 3 → vale desde 4–0). */
-  bigWinMarginGt: 3,
+  /** Bonus si el equipo gana por esta diferencia de goles o más (p. ej. 3 → 3–0, 4–1, …) */
+  bigWinMarginMin: 3,
   bigWinBonus: 1,
 } as const;
 
@@ -31,7 +33,7 @@ export type StandingRow = {
   goals: number;
   presence: number;
   noShowPenalties: number;
-  /** Puntos extra por victorias con diferencia estrictamente mayor a `SCORING.bigWinMarginGt` goles. */
+  /** Puntos extra por victorias con diferencia ≥ `SCORING.bigWinMarginMin` goles. */
   bonus: number;
 };
 
@@ -119,7 +121,7 @@ export function computeStandings(
           team === "A"
             ? m.team_a_score - m.team_b_score
             : m.team_b_score - m.team_a_score;
-        if (diff > SCORING.bigWinMarginGt) {
+        if (diff >= SCORING.bigWinMarginMin) {
           st.points += SCORING.bigWinBonus;
           st.bonus += SCORING.bigWinBonus;
         }
@@ -127,7 +129,6 @@ export function computeStandings(
       const gk = `${m.id}:${row.player_id}`;
       const g = goalsByPlayerMatch.get(gk) ?? 0;
       st.goals += g;
-      st.points += g * SCORING.goal;
     }
 
     for (const [key, status] of confirmMap.entries()) {
