@@ -56,9 +56,36 @@ export const DEMO_ASADOS: AsadoRow[] = [
 ];
 
 export const DEMO_ASADO_ATTENDEES: AsadoAttendeeRow[] = [
-  { id: "demo-ap1", asado_id: "demo-asado1", player_id: "demo-p1", portions: 2, stayed: true, bought_meat: true },
-  { id: "demo-ap2", asado_id: "demo-asado1", player_id: "demo-p2", portions: 1, stayed: true, bought_meat: false },
-  { id: "demo-ap3", asado_id: "demo-asado1", player_id: "demo-p3", portions: 1, stayed: false, bought_meat: true },
+  {
+    id: "demo-ap1",
+    asado_id: "demo-asado1",
+    player_id: "demo-p1",
+    portions: 2,
+    stayed: true,
+    bought_meat: true,
+    panificado: false,
+    postre: true,
+  },
+  {
+    id: "demo-ap2",
+    asado_id: "demo-asado1",
+    player_id: "demo-p2",
+    portions: 1,
+    stayed: true,
+    bought_meat: false,
+    panificado: true,
+    postre: false,
+  },
+  {
+    id: "demo-ap3",
+    asado_id: "demo-asado1",
+    player_id: "demo-p3",
+    portions: 1,
+    stayed: false,
+    bought_meat: true,
+    panificado: false,
+    postre: false,
+  },
 ];
 
 export function demoMatchById(matchId: string): MatchWithDetails | null {

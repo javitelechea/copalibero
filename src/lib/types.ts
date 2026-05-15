@@ -81,6 +81,10 @@ export type AsadoAttendeeRow = {
   stayed: boolean;
   /** Si compró carne (u otro insumo) para ese día de asado. */
   bought_meat: boolean;
+  /** Si aportó panificado. */
+  panificado: boolean;
+  /** Si aportó postre. */
+  postre: boolean;
 };
 
 export type AsadoAttendeeWithPlayer = AsadoAttendeeRow & {

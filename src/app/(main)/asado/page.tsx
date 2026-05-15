@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { canUsePublicApp, isOfflineDemoData } from "@/lib/env";
+import { asadoPointsForRow } from "@/lib/asado-points";
 import { formatMatchDayShort } from "@/lib/next-match";
 import { fetchAllAsadoAttendees, fetchAsados, fetchPlayers, saveAsado } from "@/lib/firestore-queries";
 import type { AsadoAttendeeRow, AsadoRow, PlayerRow } from "@/lib/types";
@@ -54,12 +55,36 @@ export default function AsadoPage() {
   }, [reload]);
 
   const leaderboard = useMemo(() => {
-    const acc = new Map<string, { portions: number; days: Set<string>; meatTimes: number }>();
+    const acc = new Map<
+      string,
+      {
+        portions: number;
+        days: Set<string>;
+        meatTimes: number;
+        stayedTimes: number;
+        panTimes: number;
+        postreTimes: number;
+        points: number;
+      }
+    >();
     for (const r of allAttendees) {
-      const cur = acc.get(r.player_id) ?? { portions: 0, days: new Set<string>(), meatTimes: 0 };
+      const cur =
+        acc.get(r.player_id) ?? {
+          portions: 0,
+          days: new Set<string>(),
+          meatTimes: 0,
+          stayedTimes: 0,
+          panTimes: 0,
+          postreTimes: 0,
+          points: 0,
+        };
       cur.portions += r.portions;
       cur.days.add(r.asado_id);
       if (r.bought_meat) cur.meatTimes += 1;
+      if (r.stayed) cur.stayedTimes += 1;
+      if (r.panificado) cur.panTimes += 1;
+      if (r.postre) cur.postreTimes += 1;
+      cur.points += asadoPointsForRow(r);
       acc.set(r.player_id, cur);
     }
     const rows = players.map((p) => {
@@ -69,10 +94,15 @@ export default function AsadoPage() {
         totalPortions: t?.portions ?? 0,
         daysCount: t?.days.size ?? 0,
         meatTimes: t?.meatTimes ?? 0,
+        stayedTimes: t?.stayedTimes ?? 0,
+        panTimes: t?.panTimes ?? 0,
+        postreTimes: t?.postreTimes ?? 0,
+        asadoPoints: t?.points ?? 0,
       };
     });
     rows.sort((a, b) => {
-      if (b.totalPortions !== a.totalPortions) return b.totalPortions - a.totalPortions;
+      if (b.asadoPoints !== a.asadoPoints) return b.asadoPoints - a.asadoPoints;
+      if (b.stayedTimes !== a.stayedTimes) return b.stayedTimes - a.stayedTimes;
       if (b.meatTimes !== a.meatTimes) return b.meatTimes - a.meatTimes;
       return a.player.display_name.localeCompare(b.player.display_name);
     });
@@ -198,24 +228,29 @@ export default function AsadoPage() {
         <div className="border-b border-border bg-surface-2 px-4 py-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Tabla general de asados</h2>
           <p className="mt-1 text-xs text-muted">
-            Porciones totales, fechas en nómina y cuántas veces compró carne (sumando todos los asados).
+            <strong>Pts</strong>: por fecha, 1 si se quedó + 1 por cada aporte (carne, panificado, postre). Las
+            porciones no suman. Orden por Pts, después por veces que se quedó.
           </p>
         </div>
         <div className="overflow-x-auto p-2 sm:p-3">
-          <table className="w-full min-w-[320px] border-collapse text-sm">
+          <table className="w-full min-w-[520px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs font-bold uppercase tracking-wide text-muted">
-                <th className="w-10 px-2 py-2 text-center">#</th>
+                <th className="w-10 px-1 py-2 text-center">#</th>
                 <th className="px-2 py-2">Jugador</th>
-                <th className="w-24 px-2 py-2 text-center">Total</th>
-                <th className="w-20 px-2 py-2 text-center">Días</th>
-                <th className="w-24 px-2 py-2 text-center">Carne</th>
+                <th className="w-12 px-0.5 py-2 text-center text-accent">Pts</th>
+                <th className="w-14 px-0.5 py-2 text-center">Porc.</th>
+                <th className="w-12 px-0.5 py-2 text-center">Días</th>
+                <th className="w-12 px-0.5 py-2 text-center">Quedó</th>
+                <th className="w-12 px-0.5 py-2 text-center">Carne</th>
+                <th className="w-14 px-0.5 py-2 text-center">Pan.</th>
+                <th className="w-12 px-0.5 py-2 text-center">Post.</th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.map((row, i) => (
                 <tr key={row.player.id} className="border-b border-border/70 last:border-b-0">
-                  <td className="px-2 py-2 text-center tabular-nums text-muted">{i + 1}</td>
+                  <td className="px-1 py-2 text-center tabular-nums text-muted">{i + 1}</td>
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       <PlayerAvatar
@@ -226,9 +261,15 @@ export default function AsadoPage() {
                       <span className="font-medium">{row.player.display_name}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-2 text-center font-bold tabular-nums text-accent">{row.totalPortions}</td>
-                  <td className="px-2 py-2 text-center tabular-nums text-muted">{row.daysCount}</td>
-                  <td className="px-2 py-2 text-center font-semibold tabular-nums text-fg">{row.meatTimes}</td>
+                  <td className="px-0.5 py-2 text-center text-sm font-black tabular-nums text-accent">
+                    {row.asadoPoints}
+                  </td>
+                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.totalPortions}</td>
+                  <td className="px-0.5 py-2 text-center tabular-nums text-muted">{row.daysCount}</td>
+                  <td className="px-0.5 py-2 text-center tabular-nums text-muted">{row.stayedTimes}</td>
+                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.meatTimes}</td>
+                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.panTimes}</td>
+                  <td className="px-0.5 py-2 text-center font-semibold tabular-nums text-fg">{row.postreTimes}</td>
                 </tr>
               ))}
             </tbody>

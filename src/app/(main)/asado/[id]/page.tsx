@@ -18,7 +18,25 @@ import {
 import type { AsadoAttendeeRow, AsadoRow, PlayerRow } from "@/lib/types";
 import { Plus, Trash2 } from "lucide-react";
 
-type LocalAttendee = { player_id: string; portions: number; stayed: boolean; bought_meat: boolean };
+type LocalAttendee = {
+  player_id: string;
+  portions: number;
+  stayed: boolean;
+  bought_meat: boolean;
+  panificado: boolean;
+  postre: boolean;
+};
+
+function attendeeToLocal(a: AsadoAttendeeRow): LocalAttendee {
+  return {
+    player_id: a.player_id,
+    portions: a.portions,
+    stayed: a.stayed,
+    bought_meat: a.bought_meat,
+    panificado: a.panificado,
+    postre: a.postre,
+  };
+}
 
 function moneyArs(n: number): string {
   return new Intl.NumberFormat("es-AR", {
@@ -103,6 +121,8 @@ export default function AsadoDiaPage() {
           portions: a.portions,
           stayed: a.stayed,
           bought_meat: a.bought_meat,
+          panificado: a.panificado,
+          postre: a.postre,
         })),
       };
       await saveAsado(body);
@@ -116,12 +136,7 @@ export default function AsadoDiaPage() {
 
   function updateAttendee(playerId: string, patch: Partial<LocalAttendee>) {
     if (!selectedAsado || !isAdmin) return;
-    const list: LocalAttendee[] = attendees.map((a) => ({
-      player_id: a.player_id,
-      portions: a.portions,
-      stayed: a.stayed,
-      bought_meat: a.bought_meat,
-    }));
+    const list: LocalAttendee[] = attendees.map(attendeeToLocal);
     const i = list.findIndex((a) => a.player_id === playerId);
     if (i < 0) return;
     list[i] = { ...list[i], ...patch };
@@ -130,14 +145,7 @@ export default function AsadoDiaPage() {
 
   function removeAttendee(playerId: string) {
     if (!selectedAsado || !isAdmin) return;
-    const list = attendees
-      .filter((a) => a.player_id !== playerId)
-      .map((a) => ({
-        player_id: a.player_id,
-        portions: a.portions,
-        stayed: a.stayed,
-        bought_meat: a.bought_meat,
-      }));
+    const list = attendees.filter((a) => a.player_id !== playerId).map(attendeeToLocal);
     void persist({ asado: selectedAsado, list });
   }
 
@@ -145,13 +153,15 @@ export default function AsadoDiaPage() {
     if (!selectedAsado || !isAdmin || !pickPlayerId) return;
     if (attendees.some((a) => a.player_id === pickPlayerId)) return;
     const list: LocalAttendee[] = [
-      ...attendees.map((a) => ({
-        player_id: a.player_id,
-        portions: a.portions,
-        stayed: a.stayed,
-        bought_meat: a.bought_meat,
-      })),
-      { player_id: pickPlayerId, portions: 0, stayed: false, bought_meat: false },
+      ...attendees.map(attendeeToLocal),
+      {
+        player_id: pickPlayerId,
+        portions: 0,
+        stayed: false,
+        bought_meat: false,
+        panificado: false,
+        postre: false,
+      },
     ];
     setPickPlayerId("");
     void persist({ asado: selectedAsado, list });
@@ -269,12 +279,7 @@ export default function AsadoDiaPage() {
               if (!held_at) return;
               void persist({
                 asado: { ...selectedAsado, held_at },
-                list: attendees.map((a) => ({
-                  player_id: a.player_id,
-                  portions: a.portions,
-                  stayed: a.stayed,
-                  bought_meat: a.bought_meat,
-                })),
+                list: attendees.map(attendeeToLocal),
               });
             }}
             className="mt-1 min-h-[44px] w-full max-w-xs rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm text-fg"
@@ -295,12 +300,7 @@ export default function AsadoDiaPage() {
               if (notes === (selectedAsado.notes ?? "")) return;
               void persist({
                 asado: { ...selectedAsado, notes },
-                list: attendees.map((a) => ({
-                  player_id: a.player_id,
-                  portions: a.portions,
-                  stayed: a.stayed,
-                  bought_meat: a.bought_meat,
-                })),
+                list: attendees.map(attendeeToLocal),
               });
             }}
             className="mt-1 w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm outline-none ring-accent/20 focus:ring-2"
@@ -341,21 +341,27 @@ export default function AsadoDiaPage() {
           </div>
         ) : null}
 
+        <p className="mt-3 text-xs text-muted">
+          Puntos del torneo de asado: 1 por &quot;Se quedó&quot;, 1 más por cada aporte (carne, panificado, postre).
+          Las porciones no suman puntos.
+        </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/80">
-          <table className="w-full min-w-[340px] border-collapse text-sm">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-2 text-left text-xs font-bold uppercase tracking-wide text-muted">
                 <th className="px-3 py-2">Jugador</th>
-                <th className="w-24 px-2 py-2 text-center">Asados</th>
-                <th className="w-28 px-2 py-2 text-center">Compró carne</th>
-                <th className="w-28 px-2 py-2 text-center">En reparto</th>
+                <th className="w-20 px-1 py-2 text-center">Porc.</th>
+                <th className="w-24 px-1 py-2 text-center">Se quedó</th>
+                <th className="w-24 px-1 py-2 text-center">Carne</th>
+                <th className="w-28 px-1 py-2 text-center">Panificado</th>
+                <th className="w-24 px-1 py-2 text-center">Postre</th>
                 {ready && isAdmin ? <th className="w-12 py-2" /> : null}
               </tr>
             </thead>
             <tbody>
               {rowsWithPlayer.length === 0 ? (
                 <tr>
-                  <td colSpan={ready && isAdmin ? 5 : 4} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={ready && isAdmin ? 7 : 6} className="px-3 py-6 text-center text-muted">
                     Nadie cargado para esta fecha. {isAdmin ? "Agregá quiénes fueron." : ""}
                   </td>
                 </tr>
@@ -372,7 +378,7 @@ export default function AsadoDiaPage() {
                         <span className="truncate font-medium">{r.player?.display_name ?? r.player_id}</span>
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-center tabular-nums">
+                    <td className="px-1 py-2 text-center tabular-nums">
                       {ready && isAdmin && !isOfflineDemoData() ? (
                         <input
                           type="number"
@@ -391,7 +397,25 @@ export default function AsadoDiaPage() {
                         r.portions
                       )}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-1 py-2 text-center">
+                      {ready && isAdmin && !isOfflineDemoData() ? (
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                          <input
+                            type="checkbox"
+                            checked={r.stayed}
+                            disabled={busy}
+                            onChange={(e) => updateAttendee(r.player_id, { stayed: e.target.checked })}
+                            className="size-5 accent-accent"
+                          />
+                          <span>1 pt</span>
+                        </label>
+                      ) : r.stayed ? (
+                        <span className="text-accent">Sí</span>
+                      ) : (
+                        <span className="text-muted">No</span>
+                      )}
+                    </td>
+                    <td className="px-1 py-2 text-center">
                       {ready && isAdmin && !isOfflineDemoData() ? (
                         <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
                           <input
@@ -403,7 +427,7 @@ export default function AsadoDiaPage() {
                             }
                             className="size-5 accent-accent"
                           />
-                          <span>Carne</span>
+                          <span>+1 pt</span>
                         </label>
                       ) : r.bought_meat ? (
                         <span className="text-accent">Sí</span>
@@ -411,19 +435,39 @@ export default function AsadoDiaPage() {
                         <span className="text-muted">No</span>
                       )}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-1 py-2 text-center">
                       {ready && isAdmin && !isOfflineDemoData() ? (
                         <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
                           <input
                             type="checkbox"
-                            checked={r.stayed}
+                            checked={r.panificado}
                             disabled={busy}
-                            onChange={(e) => updateAttendee(r.player_id, { stayed: e.target.checked })}
+                            onChange={(e) =>
+                              updateAttendee(r.player_id, { panificado: e.target.checked })
+                            }
                             className="size-5 accent-accent"
                           />
-                          <span>Se quedó</span>
+                          <span>+1 pt</span>
                         </label>
-                      ) : r.stayed ? (
+                      ) : r.panificado ? (
+                        <span className="text-accent">Sí</span>
+                      ) : (
+                        <span className="text-muted">No</span>
+                      )}
+                    </td>
+                    <td className="px-1 py-2 text-center">
+                      {ready && isAdmin && !isOfflineDemoData() ? (
+                        <label className="inline-flex cursor-pointer flex-col items-center gap-0.5 text-[0.65rem] text-muted">
+                          <input
+                            type="checkbox"
+                            checked={r.postre}
+                            disabled={busy}
+                            onChange={(e) => updateAttendee(r.player_id, { postre: e.target.checked })}
+                            className="size-5 accent-accent"
+                          />
+                          <span>+1 pt</span>
+                        </label>
+                      ) : r.postre ? (
                         <span className="text-accent">Sí</span>
                       ) : (
                         <span className="text-muted">No</span>
@@ -441,6 +485,8 @@ export default function AsadoDiaPage() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
+                    ) : ready && isAdmin ? (
+                      <td className="py-2 pr-2" />
                     ) : null}
                   </tr>
                 ))
@@ -476,12 +522,7 @@ export default function AsadoDiaPage() {
                     if (next === totalCost || (next === null && totalCost === null)) return;
                     void persist({
                       asado: { ...selectedAsado, total_cost: next },
-                      list: attendees.map((a) => ({
-                        player_id: a.player_id,
-                        portions: a.portions,
-                        stayed: a.stayed,
-                        bought_meat: a.bought_meat,
-                      })),
+                      list: attendees.map(attendeeToLocal),
                     });
                   }}
                 />

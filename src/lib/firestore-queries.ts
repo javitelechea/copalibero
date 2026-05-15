@@ -311,6 +311,19 @@ export async function fetchAsados(): Promise<AsadoRow[]> {
   return snap.docs.map((d) => asadoFromDoc(d)).sort((a, b) => b.held_at.localeCompare(a.held_at));
 }
 
+function asadoAttendeeFromFirestoreDoc(docId: string, x: Record<string, unknown>): AsadoAttendeeRow {
+  return {
+    id: docId,
+    asado_id: String(x.asado_id),
+    player_id: String(x.player_id),
+    portions: Math.max(0, Math.trunc(Number(x.portions ?? 0))),
+    stayed: x.stayed === true,
+    bought_meat: x.bought_meat === true,
+    panificado: x.panificado === true,
+    postre: x.postre === true,
+  };
+}
+
 export async function fetchAsadoAttendees(asadoId: string): Promise<AsadoAttendeeRow[]> {
   if (isOfflineDemoData()) {
     return DEMO_ASADO_ATTENDEES.filter((r) => r.asado_id === asadoId);
@@ -323,17 +336,7 @@ export async function fetchAsadoAttendees(asadoId: string): Promise<AsadoAttende
   }
   const db = getFirestoreDb();
   const snap = await getDocs(query(collection(db, C.asadoPlayers), where("asado_id", "==", asadoId)));
-  return snap.docs.map((d) => {
-    const x = d.data();
-    return {
-      id: d.id,
-      asado_id: String(x.asado_id),
-      player_id: String(x.player_id),
-      portions: Math.max(0, Math.trunc(Number(x.portions ?? 0))),
-      stayed: x.stayed === true,
-      bought_meat: x.bought_meat === true,
-    };
-  });
+  return snap.docs.map((d) => asadoAttendeeFromFirestoreDoc(d.id, d.data()));
 }
 
 /** Todas las filas de `asado_players` (para la tabla general acumulada). */
@@ -347,17 +350,7 @@ export async function fetchAllAsadoAttendees(): Promise<AsadoAttendeeRow[]> {
   }
   const db = getFirestoreDb();
   const snap = await getDocs(collection(db, C.asadoPlayers));
-  return snap.docs.map((d) => {
-    const x = d.data();
-    return {
-      id: d.id,
-      asado_id: String(x.asado_id),
-      player_id: String(x.player_id),
-      portions: Math.max(0, Math.trunc(Number(x.portions ?? 0))),
-      stayed: x.stayed === true,
-      bought_meat: x.bought_meat === true,
-    };
-  });
+  return snap.docs.map((d) => asadoAttendeeFromFirestoreDoc(d.id, d.data()));
 }
 
 export type SaveAsadoBody = {
@@ -365,7 +358,14 @@ export type SaveAsadoBody = {
   held_at: string;
   notes: string | null;
   total_cost: number | null;
-  attendees: { player_id: string; portions: number; stayed: boolean; bought_meat: boolean }[];
+  attendees: {
+    player_id: string;
+    portions: number;
+    stayed: boolean;
+    bought_meat: boolean;
+    panificado: boolean;
+    postre: boolean;
+  }[];
 };
 
 function asadoPlayerDocId(asadoId: string, playerId: string): string {
@@ -408,6 +408,8 @@ export async function saveAsado(body: SaveAsadoBody): Promise<{ id: string }> {
     const portions = Math.max(0, Math.trunc(Number(a.portions ?? 0)));
     const stayed = Boolean(a.stayed);
     const bought_meat = Boolean(a.bought_meat);
+    const panificado = Boolean(a.panificado);
+    const postre = Boolean(a.postre);
     const rid = asadoPlayerDocId(id, pid);
     batch.set(doc(db, C.asadoPlayers, rid), {
       asado_id: id,
@@ -415,6 +417,8 @@ export async function saveAsado(body: SaveAsadoBody): Promise<{ id: string }> {
       portions,
       stayed,
       bought_meat,
+      panificado,
+      postre,
     });
   }
   await batch.commit();

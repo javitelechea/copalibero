@@ -370,8 +370,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const url = new URL(request.url);
       const asadoId = url.searchParams.get("asadoId");
       const q = asadoId
-        ? "SELECT id, asado_id, player_id, portions, stayed, bought_meat FROM asado_attendees WHERE asado_id = ? ORDER BY player_id"
-        : "SELECT id, asado_id, player_id, portions, stayed, bought_meat FROM asado_attendees ORDER BY asado_id, player_id";
+        ? "SELECT id, asado_id, player_id, portions, stayed, bought_meat, panificado, postre FROM asado_attendees WHERE asado_id = ? ORDER BY player_id"
+        : "SELECT id, asado_id, player_id, portions, stayed, bought_meat, panificado, postre FROM asado_attendees ORDER BY asado_id, player_id";
       const stmt = asadoId ? db.prepare(q).bind(asadoId) : db.prepare(q);
       const { results } = await stmt.all<{
         id: string;
@@ -380,6 +380,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         portions: number;
         stayed: number;
         bought_meat: number;
+        panificado: number;
+        postre: number;
       }>();
       return json({
         rows: (results ?? []).map((r) => ({
@@ -389,6 +391,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           portions: Math.max(0, Math.trunc(Number(r.portions ?? 0))),
           stayed: r.stayed !== 0,
           bought_meat: r.bought_meat !== 0,
+          panificado: r.panificado !== 0,
+          postre: r.postre !== 0,
         })),
       });
     }
@@ -401,7 +405,14 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         held_at?: string;
         notes?: string | null;
         total_cost?: number | null;
-        attendees?: { player_id: string; portions?: number; stayed?: boolean; bought_meat?: boolean }[];
+        attendees?: {
+          player_id: string;
+          portions?: number;
+          stayed?: boolean;
+          bought_meat?: boolean;
+          panificado?: boolean;
+          postre?: boolean;
+        }[];
       };
       const heldAt = String(b.held_at ?? "").slice(0, 10);
       if (!heldAt) return json({ error: "Fecha requerida" }, { status: 400 });
@@ -433,12 +444,14 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         const portions = Math.max(0, Math.trunc(Number(a.portions ?? 0)));
         const stayed = a.stayed ? 1 : 0;
         const boughtMeat = a.bought_meat ? 1 : 0;
+        const panificado = a.panificado ? 1 : 0;
+        const postre = a.postre ? 1 : 0;
         stmts.push(
           db
             .prepare(
-              "INSERT INTO asado_attendees (id, asado_id, player_id, portions, stayed, bought_meat) VALUES (?, ?, ?, ?, ?, ?)"
+              "INSERT INTO asado_attendees (id, asado_id, player_id, portions, stayed, bought_meat, panificado, postre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
-            .bind(crypto.randomUUID(), asadoId, pid, portions, stayed, boughtMeat)
+            .bind(crypto.randomUUID(), asadoId, pid, portions, stayed, boughtMeat, panificado, postre)
         );
       }
       if (stmts.length) await db.batch(stmts);
