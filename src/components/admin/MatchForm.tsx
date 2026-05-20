@@ -7,12 +7,12 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import { isD1Backend } from "@/lib/env";
 import { deleteDocsWhere, saveMatchD1 } from "@/lib/firestore-queries";
-import type { MatchWithDetails, PlayerRow } from "@/lib/types";
+import type { MatchStatus, MatchWithDetails, PlayerRow } from "@/lib/types";
 
 export type MatchFormCreateDefaults = {
   playedAt: string;
   notes: string;
-  scheduled: boolean;
+  status?: "scheduled" | "loaded";
 };
 
 type Props = {
@@ -67,9 +67,14 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       : (createDefaults?.playedAt ?? toDateInput(new Date().toISOString()))
   );
   const [notes, setNotes] = useState(initialMatch?.notes ?? createDefaults?.notes ?? "");
-  const [isScheduled, setIsScheduled] = useState(
-    () => initialMatch?.status === "scheduled" || Boolean(createDefaults?.scheduled)
-  );
+  const [matchMode, setMatchMode] = useState<"scheduled" | "loaded" | "played">(() => {
+    if (initialMatch?.status === "played") return "played";
+    if (initialMatch?.status === "loaded") return "loaded";
+    if (initialMatch?.status === "scheduled") return "scheduled";
+    if (createDefaults?.status === "loaded") return "loaded";
+    if (createDefaults?.status === "scheduled") return "scheduled";
+    return "scheduled";
+  });
   const [aScore, setAScore] = useState(initialMatch?.team_a_score ?? 0);
   const [bScore, setBScore] = useState(initialMatch?.team_b_score ?? 0);
 
@@ -107,8 +112,10 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const canPickMode = !initialMatch || initialMatch.status === "scheduled";
-  const submitAsScheduled = canPickMode && isScheduled;
+  const canPickMode = !initialMatch || initialMatch.status !== "played";
+  const submitAsScheduled = canPickMode && matchMode === "scheduled";
+  const submitAsLoaded = canPickMode && matchMode === "loaded";
+  const submitAsPlayed = matchMode === "played";
 
   const inMatch = useMemo(() => new Set([...teamA, ...teamB]), [teamA, teamB]);
 
@@ -118,6 +125,42 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       .filter(Boolean)
       .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
   }, [convocados, byId]);
+
+  const teamASorted = useMemo(() => {
+    return [...teamA]
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
+  }, [teamA, byId]);
+
+  const teamBSorted = useMemo(() => {
+    return [...teamB]
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
+  }, [teamB, byId]);
+
+  const sinEquipoSorted = useMemo(
+    () => convocadosSorted.filter((p) => !teamA.has(p.id) && !teamB.has(p.id)),
+    [convocadosSorted, teamA, teamB]
+  );
+
+  const teamsEstablished = useMemo(() => {
+    if (convocados.size === 0 || teamA.size === 0 || teamB.size === 0) return false;
+    for (const id of convocados) {
+      if (!teamA.has(id) && !teamB.has(id)) return false;
+    }
+    return true;
+  }, [convocados, teamA, teamB]);
+
+  const goalsSumA = useMemo(
+    () => teamASorted.reduce((sum, p) => sum + (goals[p.id] ?? 0), 0),
+    [teamASorted, goals]
+  );
+  const goalsSumB = useMemo(
+    () => teamBSorted.reduce((sum, p) => sum + (goals[p.id] ?? 0), 0),
+    [teamBSorted, goals]
+  );
 
   function toggleConvocado(playerId: string) {
     setConvocados((prev) => {
@@ -134,6 +177,11 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           nb.delete(playerId);
           return nb;
         });
+        setGoals((g) => {
+          const next = { ...g };
+          delete next[playerId];
+          return next;
+        });
       } else {
         n.add(playerId);
       }
@@ -141,38 +189,40 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     });
   }
 
-  function toggleTeam(playerId: string, team: "A" | "B") {
+  function assignToTeam(playerId: string, team: "A" | "B") {
     if (!convocados.has(playerId)) return;
-    if (team === "A") {
-      setTeamB((b) => {
-        const n = new Set(b);
-        n.delete(playerId);
-        return n;
-      });
-      setTeamA((a) => {
-        const n = new Set(a);
-        if (n.has(playerId)) n.delete(playerId);
-        else n.add(playerId);
-        return n;
-      });
-    } else {
-      setTeamA((a) => {
-        const n = new Set(a);
-        n.delete(playerId);
-        return n;
-      });
-      setTeamB((b) => {
-        const n = new Set(b);
-        if (n.has(playerId)) n.delete(playerId);
-        else n.add(playerId);
-        return n;
-      });
-    }
+    setTeamA((a) => {
+      const n = new Set(a);
+      n.delete(playerId);
+      if (team === "A") n.add(playerId);
+      return n;
+    });
+    setTeamB((b) => {
+      const n = new Set(b);
+      n.delete(playerId);
+      if (team === "B") n.add(playerId);
+      return n;
+    });
   }
 
-  function setGoal(playerId: string, n: number) {
+  function removeFromTeam(playerId: string) {
+    setTeamA((a) => {
+      const n = new Set(a);
+      n.delete(playerId);
+      return n;
+    });
+    setTeamB((b) => {
+      const n = new Set(b);
+      n.delete(playerId);
+      return n;
+    });
+  }
+
+  function adjustGoal(playerId: string, delta: number) {
     setGoals((g) => {
       const next = { ...g };
+      const cur = next[playerId] ?? 0;
+      const n = Math.max(0, cur + delta);
       if (n <= 0) delete next[playerId];
       else next[playerId] = n;
       return next;
@@ -199,13 +249,19 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     e.preventDefault();
     setError("");
 
-    if (submitAsScheduled) {
+    if (submitAsScheduled || submitAsLoaded) {
+      if (submitAsLoaded && convocados.size === 0) {
+        setError("En estado Cargado tenés que convocar al menos un jugador.");
+        return;
+      }
+      const status: MatchStatus = submitAsLoaded ? "loaded" : "scheduled";
+      const d1Mode = submitAsLoaded ? "loaded" : "scheduled";
       setLoading(true);
       try {
         if (isD1Backend()) {
           await saveMatchD1({
             id: editId ?? null,
-            mode: "scheduled",
+            mode: d1Mode,
             played_at: playedAt,
             notes: notes.trim() || null,
             pool: [...convocados],
@@ -222,7 +278,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
-            status: "scheduled",
+            status,
             notes: notesVal,
           });
         } else {
@@ -230,7 +286,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
-            status: "scheduled",
+            status,
             notes: notesVal,
             created_at: new Date().toISOString(),
           });
@@ -366,23 +422,34 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             <input
               type="radio"
               name="match-mode"
-              checked={isScheduled}
-              onChange={() => setIsScheduled(true)}
+              checked={matchMode === "scheduled"}
+              onChange={() => setMatchMode("scheduled")}
               className="size-4 accent-accent"
             />
             <span className="text-sm font-medium">Programado</span>
-            <span className="text-xs text-muted">(convocatoria; equipos después)</span>
+            <span className="text-xs text-muted">(fecha y lugar; sin convocatoria obligatoria)</span>
           </label>
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
             <input
               type="radio"
               name="match-mode"
-              checked={!isScheduled}
-              onChange={() => setIsScheduled(false)}
+              checked={matchMode === "loaded"}
+              onChange={() => setMatchMode("loaded")}
               className="size-4 accent-accent"
             />
-            <span className="text-sm font-medium">Ya jugado</span>
-            <span className="text-xs text-muted">(convocados → equipos → resultado)</span>
+            <span className="text-sm font-medium">Cargado</span>
+            <span className="text-xs text-muted">(convocatoria lista; aún sin resultado)</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
+            <input
+              type="radio"
+              name="match-mode"
+              checked={matchMode === "played"}
+              onChange={() => setMatchMode("played")}
+              className="size-4 accent-accent"
+            />
+            <span className="text-sm font-medium">Finalizado</span>
+            <span className="text-xs text-muted">(equipos, marcador y goles)</span>
           </label>
         </fieldset>
       ) : null}
@@ -409,7 +476,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           />
         </label>
 
-        {!submitAsScheduled ? (
+        {submitAsPlayed ? (
           <>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-muted">Goles equipo A</span>
@@ -436,7 +503,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           </>
         ) : (
           <p className="sm:col-span-2 text-sm text-muted">
-            Marcador 0 — 0 hasta que cargues el resultado al editar el partido.
+            El marcador se carga cuando el partido está en estado Finalizado.
           </p>
         )}
       </div>
@@ -503,124 +570,253 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-border bg-surface-2 p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Convocados</h2>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${
-              convocados.size > 0 ? "bg-accent/15 text-accent" : "bg-surface text-muted"
-            }`}
-          >
-            {convocados.size} {convocados.size === 1 ? "jugador" : "jugadores"}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-muted">
-          {submitAsScheduled
-            ? "Se guardan como convocatoria del partido (aún sin equipos)."
-            : "Después asignás cada uno a equipo A o B abajo."}
-        </p>
-        {convocadosSorted.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Todavía no hay nadie convocado.</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {convocadosSorted.map((p) => (
-              <li key={`conv-${p.id}`} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
-                <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
-                <button
-                  type="button"
-                  onClick={() => toggleConvocado(p.id)}
-                  className="shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted hover:bg-surface-2"
-                >
-                  Quitar
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {!submitAsScheduled ? (
+      {submitAsPlayed ? (
         <>
-          <section>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
-              3 · Equipo A ({teamA.size} de {convocados.size})
-            </h2>
-            {convocadosSorted.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">Primero armá la convocatoria.</p>
-            ) : (
-              <ul className="mt-2 flex flex-col gap-2">
-                {convocadosSorted.map((p) => (
-                  <li key={`a-${p.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => toggleTeam(p.id, "A")}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                        teamA.has(p.id)
-                          ? "border-accent/60 bg-accent/10"
-                          : "border-border bg-surface-2 hover:border-border"
+          {convocadosSorted.length === 0 ? (
+            <p className="text-sm text-muted">Primero armá la convocatoria para asignar equipos y goles.</p>
+          ) : teamsEstablished ? (
+            <section className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Equipos y goles</h2>
+                <p className="mt-1 text-xs text-muted">
+                  Cada jugador en su equipo. Tocá − o + para los goles; deberían sumar el marcador de arriba.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-border bg-surface-2 p-4">
+                  <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Equipo A</h3>
+                    <span
+                      className={`text-xs font-semibold tabular-nums ${
+                        goalsSumA === aScore ? "text-accent" : "text-amber-400"
                       }`}
                     >
-                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
-                      <span className="font-medium">{p.display_name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                      {goalsSumA} / {aScore} goles
+                    </span>
+                  </div>
+                  {goalsSumA !== aScore ? (
+                    <p className="mb-3 text-xs text-amber-400/90">
+                      Faltan o sobran goles respecto al marcador del equipo A.
+                    </p>
+                  ) : null}
+                  <ul className="flex flex-col gap-2">
+                    {teamASorted.map((p) => {
+                      const n = goals[p.id] ?? 0;
+                      return (
+                        <li
+                          key={`ga-${p.id}`}
+                          className={`rounded-xl border px-3 py-2.5 ${
+                            n > 0 ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                            <button
+                              type="button"
+                              onClick={() => assignToTeam(p.id, "B")}
+                              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted hover:text-fg"
+                            >
+                              → B
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Menos goles de ${p.display_name}`}
+                              disabled={n <= 0}
+                              onClick={() => adjustGoal(p.id, -1)}
+                              className="flex size-11 items-center justify-center rounded-xl border border-border bg-surface-2 text-xl font-bold text-fg transition hover:bg-surface disabled:opacity-30"
+                            >
+                              −
+                            </button>
+                            <span className="min-w-[2.5rem] text-center text-lg font-black tabular-nums text-accent">
+                              {n}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Más goles de ${p.display_name}`}
+                              onClick={() => adjustGoal(p.id, 1)}
+                              className="flex size-11 items-center justify-center rounded-xl border border-accent/50 bg-accent/15 text-xl font-bold text-accent transition hover:bg-accent/25"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
 
-          <section>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
-              3 · Equipo B ({teamB.size} de {convocados.size})
-            </h2>
-            {convocadosSorted.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">Primero armá la convocatoria.</p>
-            ) : (
-              <ul className="mt-2 flex flex-col gap-2">
-                {convocadosSorted.map((p) => (
-                  <li key={`b-${p.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => toggleTeam(p.id, "B")}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                        teamB.has(p.id)
-                          ? "border-accent/60 bg-accent/10"
-                          : "border-border bg-surface-2 hover:border-border"
+                <div className="rounded-2xl border border-border bg-surface-2 p-4">
+                  <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Equipo B</h3>
+                    <span
+                      className={`text-xs font-semibold tabular-nums ${
+                        goalsSumB === bScore ? "text-emerald-400" : "text-amber-400"
                       }`}
                     >
-                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
-                      <span className="font-medium">{p.display_name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                      {goalsSumB} / {bScore} goles
+                    </span>
+                  </div>
+                  {goalsSumB !== bScore ? (
+                    <p className="mb-3 text-xs text-amber-400/90">
+                      Faltan o sobran goles respecto al marcador del equipo B.
+                    </p>
+                  ) : null}
+                  <ul className="flex flex-col gap-2">
+                    {teamBSorted.map((p) => {
+                      const n = goals[p.id] ?? 0;
+                      return (
+                        <li
+                          key={`gb-${p.id}`}
+                          className={`rounded-xl border px-3 py-2.5 ${
+                            n > 0 ? "border-emerald-500/40 bg-emerald-500/5" : "border-border bg-surface"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                            <button
+                              type="button"
+                              onClick={() => assignToTeam(p.id, "A")}
+                              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted hover:text-fg"
+                            >
+                              → A
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Menos goles de ${p.display_name}`}
+                              disabled={n <= 0}
+                              onClick={() => adjustGoal(p.id, -1)}
+                              className="flex size-11 items-center justify-center rounded-xl border border-border bg-surface-2 text-xl font-bold text-fg transition hover:bg-surface disabled:opacity-30"
+                            >
+                              −
+                            </button>
+                            <span className="min-w-[2.5rem] text-center text-lg font-black tabular-nums text-emerald-400">
+                              {n}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Más goles de ${p.display_name}`}
+                              onClick={() => adjustGoal(p.id, 1)}
+                              className="flex size-11 items-center justify-center rounded-xl border border-emerald-500/50 bg-emerald-500/15 text-xl font-bold text-emerald-400 transition hover:bg-emerald-500/25"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Armar equipos</h2>
+                <p className="mt-1 text-xs text-muted">
+                  Asigná cada convocado a A o B. Cuando estén todos, vas a cargar goles por equipo.
+                </p>
+                <p className="mt-2 text-xs font-medium tabular-nums text-muted">
+                  A: {teamA.size} · B: {teamB.size} · sin equipo: {sinEquipoSorted.length}
+                </p>
+              </div>
 
-          {inMatch.size > 0 && (
-            <section>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Goles por jugador</h2>
-              <p className="mt-1 text-xs text-muted">Solo jugadores en cancha. Dejá en 0 si no metió.</p>
-              <ul className="mt-3 flex flex-col gap-2">
-                {[...inMatch].map((id) => {
-                  const p = byId.get(id);
-                  if (!p) return null;
-                  return (
-                    <li key={`g-${id}`} className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2">
-                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={goals[id] ?? 0}
-                        onChange={(e) => setGoal(id, Number(e.target.value))}
-                        className="w-16 rounded-lg border border-border bg-surface px-2 py-1.5 text-center font-mono text-sm tabular-nums"
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
+              {sinEquipoSorted.length > 0 ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-amber-400">
+                    Sin equipo ({sinEquipoSorted.length})
+                  </h3>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {sinEquipoSorted.map((p) => (
+                      <li
+                        key={`ne-${p.id}`}
+                        className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2"
+                      >
+                        <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                        <button
+                          type="button"
+                          onClick={() => assignToTeam(p.id, "A")}
+                          className="min-h-[40px] rounded-lg border border-accent/50 bg-accent/15 px-4 text-sm font-bold text-accent"
+                        >
+                          Equipo A
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => assignToTeam(p.id, "B")}
+                          className="min-h-[40px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-4 text-sm font-bold text-emerald-400"
+                        >
+                          Equipo B
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-border bg-surface-2 p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                    Equipo A ({teamA.size})
+                  </h3>
+                  {teamASorted.length === 0 ? (
+                    <p className="mt-3 text-sm text-muted">Vacío</p>
+                  ) : (
+                    <ul className="mt-3 flex flex-col gap-2">
+                      {teamASorted.map((p) => (
+                        <li
+                          key={`ta-${p.id}`}
+                          className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2"
+                        >
+                          <PlayerAvatar name={p.display_name} url={p.avatar_url} size={32} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeFromTeam(p.id)}
+                            className="shrink-0 rounded-lg border border-border px-2 py-1 text-xs text-muted hover:bg-surface"
+                          >
+                            Quitar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-border bg-surface-2 p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                    Equipo B ({teamB.size})
+                  </h3>
+                  {teamBSorted.length === 0 ? (
+                    <p className="mt-3 text-sm text-muted">Vacío</p>
+                  ) : (
+                    <ul className="mt-3 flex flex-col gap-2">
+                      {teamBSorted.map((p) => (
+                        <li
+                          key={`tb-${p.id}`}
+                          className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2"
+                        >
+                          <PlayerAvatar name={p.display_name} url={p.avatar_url} size={32} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeFromTeam(p.id)}
+                            className="shrink-0 rounded-lg border border-border px-2 py-1 text-xs text-muted hover:bg-surface"
+                          >
+                            Quitar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </section>
           )}
         </>
@@ -642,12 +838,14 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               ? `Guardar cambios · ${convocados.size} convocados`
               : "Guardar cambios"
             : submitAsScheduled
-              ? convocados.size > 0
-                ? `Crear partido programado · ${convocados.size} convocados`
-                : "Crear partido programado"
-              : convocados.size > 0
-                ? `Crear partido · ${convocados.size} convocados`
-                : "Crear partido"}
+              ? "Crear partido programado"
+              : submitAsLoaded
+                ? convocados.size > 0
+                  ? `Guardar cargado · ${convocados.size} convocados`
+                  : "Guardar partido cargado"
+                : convocados.size > 0
+                  ? `Crear partido finalizado · ${convocados.size} convocados`
+                  : "Crear partido finalizado"}
       </button>
     </form>
   );

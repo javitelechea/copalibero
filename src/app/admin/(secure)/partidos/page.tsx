@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMatches } from "@/lib/firestore-queries";
 import { LIBERO_MATCH_NOTES, nextThursdayLocalYmd } from "@/lib/weekly-match-defaults";
+import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
 import type { MatchRow } from "@/lib/types";
 import { ChevronRight, Plus } from "lucide-react";
 
@@ -66,9 +67,13 @@ export default function AdminPartidosPage() {
                   year: "numeric",
                 })}
               </span>
-              <span className="font-mono font-bold tabular-nums">
-                {m.team_a_score} — {m.team_b_score}
-              </span>
+              {showsMatchScore(m.status) ? (
+                <span className="font-mono font-bold tabular-nums">
+                  {m.team_a_score} — {m.team_b_score}
+                </span>
+              ) : (
+                <span className="text-sm font-bold text-accent">{matchStatusLabel(m.status)}</span>
+              )}
               <ChevronRight className="h-5 w-5 text-muted" />
             </Link>
           </li>

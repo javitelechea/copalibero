@@ -23,7 +23,7 @@ export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails 
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!ready || !isAdmin || match.status !== "scheduled") return;
+    if (!ready || !isAdmin || (match.status !== "scheduled" && match.status !== "loaded")) return;
     let cancelled = false;
     setLoaded(false);
     void Promise.all([
@@ -49,7 +49,7 @@ export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails 
     };
   }, [ready, isAdmin, match.status, match.id]);
 
-  if (!ready || !isAdmin || match.status !== "scheduled") return null;
+  if (!ready || !isAdmin || (match.status !== "scheduled" && match.status !== "loaded")) return null;
   if (!loaded) {
     return (
       <p className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatches } from "@/lib/firestore-queries";
+import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
 import type { MatchRow } from "@/lib/types";
 import { ChevronRight } from "lucide-react";
 
@@ -53,7 +54,7 @@ export default function PartidosPage() {
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                    {m.status === "scheduled" ? "Programado" : "Jugado"}
+                    {matchStatusLabel(m.status)}
                   </p>
                   <p className="mt-0.5 font-medium">
                     {new Date(m.played_at + "T12:00:00").toLocaleDateString("es", {
@@ -65,9 +66,15 @@ export default function PartidosPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-xl bg-surface-2 px-3 py-1.5 font-mono text-lg font-bold tabular-nums">
-                    {m.team_a_score} — {m.team_b_score}
-                  </span>
+                  {showsMatchScore(m.status) ? (
+                    <span className="rounded-xl bg-surface-2 px-3 py-1.5 font-mono text-lg font-bold tabular-nums">
+                      {m.team_a_score} — {m.team_b_score}
+                    </span>
+                  ) : (
+                    <span className="rounded-xl bg-accent/10 px-3 py-1.5 text-sm font-bold text-accent">
+                      {matchStatusLabel(m.status)}
+                    </span>
+                  )}
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
                 </div>
               </Link>

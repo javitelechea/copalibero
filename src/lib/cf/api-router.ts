@@ -170,7 +170,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           played_at: String(r.played_at).slice(0, 10),
           team_a_score: r.team_a_score,
           team_b_score: r.team_b_score,
-          status: r.status === "scheduled" ? "scheduled" : "played",
+          status:
+            r.status === "scheduled" ? "scheduled" : r.status === "loaded" ? "loaded" : "played",
           notes: r.notes,
           created_at: r.created_at,
         })),
@@ -241,7 +242,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           played_at: String(m.played_at).slice(0, 10),
           team_a_score: m.team_a_score,
           team_b_score: m.team_b_score,
-          status: m.status === "scheduled" ? "scheduled" : "played",
+          status:
+            m.status === "scheduled" ? "scheduled" : m.status === "loaded" ? "loaded" : "played",
           notes: m.notes,
           created_at: m.created_at,
           match_players,
@@ -255,7 +257,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       if (gate instanceof Response) return gate;
       const b = (await request.json()) as {
         id?: string | null;
-        mode: "scheduled" | "played";
+        mode: "scheduled" | "loaded" | "played";
         played_at: string;
         notes: string | null;
         team_a_score?: number;
@@ -269,19 +271,20 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const notes = b.notes ?? null;
       const created = new Date().toISOString();
 
-      if (b.mode === "scheduled") {
+      if (b.mode === "scheduled" || b.mode === "loaded") {
+        const st = b.mode === "loaded" ? "loaded" : "scheduled";
         await db
           .prepare(
             `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at)
-             VALUES (?, ?, 0, 0, 'scheduled', ?, ?)
+             VALUES (?, ?, 0, 0, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                played_at = excluded.played_at,
                team_a_score = 0,
                team_b_score = 0,
-               status = 'scheduled',
+               status = excluded.status,
                notes = excluded.notes`
           )
-          .bind(matchId, playedAt, notes, created)
+          .bind(matchId, playedAt, st, notes, created)
           .run();
       } else {
         await db
@@ -309,7 +312,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       await db.prepare("DELETE FROM match_players WHERE match_id = ?").bind(matchId).run();
       await db.prepare("DELETE FROM match_goals WHERE match_id = ?").bind(matchId).run();
 
-      if (b.mode === "scheduled") {
+      if (b.mode === "scheduled" || b.mode === "loaded") {
         const pool = b.pool ?? [];
         const stmts = pool.map((player_id) =>
           db

@@ -5,7 +5,7 @@ export type MatchRosterRole = Team | "pool";
 
 export type ConfirmationStatus = "confirmed" | "maybe" | "declined";
 
-export type MatchStatus = "scheduled" | "played";
+export type MatchStatus = "scheduled" | "loaded" | "played";
 
 export type PlayerRow = {
   id: string;

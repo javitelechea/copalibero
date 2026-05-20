@@ -74,7 +74,7 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
     [sortedPool, teamById]
   );
 
-  if (nextMatch.status !== "scheduled") return null;
+  if (nextMatch.status !== "scheduled" && nextMatch.status !== "loaded") return null;
 
   function cycleTeam(playerId: string) {
     setManual(true);

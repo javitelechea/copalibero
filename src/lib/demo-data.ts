@@ -28,7 +28,7 @@ export const DEMO_MATCHES: MatchRow[] = [
     played_at: "2026-05-14",
     team_a_score: 0,
     team_b_score: 0,
-    status: "scheduled",
+    status: "loaded",
     notes: LIBERO_MATCH_NOTES,
     created_at: t,
   },

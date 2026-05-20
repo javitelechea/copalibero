@@ -16,6 +16,7 @@ import {
   fetchMatches,
   fetchPlayers,
 } from "@/lib/firestore-queries";
+import { matchStatusLabel } from "@/lib/match-status";
 import { formatMatchDayShort, pickLastPlayedMatch, pickNextScheduledMatch } from "@/lib/next-match";
 import { computeStandings } from "@/lib/scoring";
 import type { MatchRow } from "@/lib/types";
@@ -157,6 +158,7 @@ export default function HomePage() {
             >
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold tracking-tight">{formatMatchDayShort(nextMatch.played_at)}</p>
+                <p className="mt-0.5 text-xs font-semibold text-accent">{matchStatusLabel(nextMatch.status)}</p>
                 {nextMatch.notes ? (
                   <p className="mt-0.5 line-clamp-2 text-sm text-muted">{nextMatch.notes}</p>
                 ) : null}

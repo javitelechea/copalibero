@@ -23,7 +23,7 @@ function parseCreateDefaults(sp: URLSearchParams): MatchFormCreateDefaults | nul
       notes = LIBERO_MATCH_NOTES;
     }
   }
-  return { playedAt: fecha, notes, scheduled: true };
+  return { playedAt: fecha, notes, status: "loaded" };
 }
 
 function NuevoPartidoInner() {

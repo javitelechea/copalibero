@@ -1,9 +1,10 @@
+import { isMatchUpcoming } from "@/lib/match-status";
 import type { MatchRow } from "@/lib/types";
 
-/** Primer partido con estado `scheduled`, por fecha ascendente. */
+/** Próximo partido no finalizado (programado o cargado), por fecha ascendente. */
 export function pickNextScheduledMatch(matches: MatchRow[]): MatchRow | null {
   const upcoming = matches
-    .filter((m) => m.status === "scheduled")
+    .filter((m) => isMatchUpcoming(m.status))
     .sort((a, b) => a.played_at.localeCompare(b.played_at));
   return upcoming[0] ?? null;
 }

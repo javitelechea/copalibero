@@ -8,6 +8,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchById } from "@/lib/firestore-queries";
+import { isMatchFinalized, matchStatusLabel, showsMatchScore } from "@/lib/match-status";
 import type { MatchWithDetails } from "@/lib/types";
 
 export default function PartidoDetailPage() {
@@ -71,7 +72,7 @@ export default function PartidoDetailPage() {
 
       <header className="rounded-3xl border border-border bg-gradient-to-br from-surface to-surface-2 p-6 shadow-[var(--shadow-glow)]">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted">
-          {match.status === "scheduled" ? "Programado" : "Resultado"}
+          {showsMatchScore(match.status) ? "Resultado" : "Estado"}
         </p>
         <p className="mt-1 text-sm text-muted">
           {new Date(match.played_at + "T12:00:00").toLocaleDateString("es", {
@@ -81,13 +82,18 @@ export default function PartidoDetailPage() {
             year: "numeric",
           })}
         </p>
-        <div className="mt-6 flex items-center justify-center gap-4">
-          <span className="text-5xl font-black tabular-nums text-accent">{match.team_a_score}</span>
-          <span className="text-2xl font-light text-muted">—</span>
-          <span className="text-5xl font-black tabular-nums text-accent">{match.team_b_score}</span>
-        </div>
+        {showsMatchScore(match.status) ? (
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <span className="text-5xl font-black tabular-nums text-accent">{match.team_a_score}</span>
+            <span className="text-2xl font-light text-muted">—</span>
+            <span className="text-5xl font-black tabular-nums text-accent">{match.team_b_score}</span>
+          </div>
+        ) : (
+          <p className="mt-6 text-center text-3xl font-black text-accent">{matchStatusLabel(match.status)}</p>
+        )}
       </header>
 
+      {isMatchFinalized(match.status) && (teamA.length > 0 || teamB.length > 0) ? (
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-border bg-surface p-4">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Equipo A</h2>
@@ -148,6 +154,7 @@ export default function PartidoDetailPage() {
           )}
         </div>
       </section>
+      ) : null}
 
       <section className="rounded-2xl border border-border bg-surface p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
