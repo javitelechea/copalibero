@@ -10,6 +10,7 @@ import { isUserAdmin } from "@/lib/firestore-queries";
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const d1 = isD1Backend();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,10 +55,12 @@ export function LoginForm() {
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       <label className="block">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">Email</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted">
+          {d1 ? "Usuario" : "Email"}
+        </span>
         <input
-          type="email"
-          autoComplete="email"
+          type={d1 ? "text" : "email"}
+          autoComplete={d1 ? "username" : "email"}
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}

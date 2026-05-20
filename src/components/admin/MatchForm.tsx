@@ -1,18 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firestore/lite";
 import { useRouter } from "next/navigation";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import { isD1Backend } from "@/lib/env";
 import { deleteDocsWhere, saveMatchD1 } from "@/lib/firestore-queries";
-import type { MatchStatus, MatchWithDetails, PlayerRow } from "@/lib/types";
+import {
+  resolveMatchStatus,
+  rosterCountsFromDetails,
+  type MatchRosterCounts,
+} from "@/lib/match-status";
+import { teamDisplayName } from "@/lib/team-labels";
+import type { MatchStatus, MatchWithDetails, PlayerRow, Team } from "@/lib/types";
+
+type MatchFormMode = "scheduled" | "loaded" | "teams" | "played";
+
+function initialMatchMode(
+  initialMatch: MatchWithDetails | null | undefined,
+  createDefaults: MatchFormCreateDefaults | null | undefined
+): MatchFormMode {
+  if (initialMatch?.status === "played") return "played";
+  if (initialMatch) {
+    return resolveMatchStatus(
+      initialMatch.status,
+      rosterCountsFromDetails(initialMatch.match_players)
+    ) as MatchFormMode;
+  }
+  if (createDefaults?.status === "loaded") return "loaded";
+  if (createDefaults?.status === "scheduled") return "scheduled";
+  return "scheduled";
+}
+
+function rosterCountsFromSets(
+  convocados: Set<string>,
+  teamA: Set<string>,
+  teamB: Set<string>
+): MatchRosterCounts {
+  let assignedCount = 0;
+  for (const id of convocados) {
+    if (teamA.has(id) || teamB.has(id)) assignedCount += 1;
+  }
+  return { convocadoCount: convocados.size, assignedCount };
+}
 
 export type MatchFormCreateDefaults = {
   playedAt: string;
   notes: string;
-  status?: "scheduled" | "loaded";
+  status?: "scheduled" | "loaded" | "teams";
 };
 
 type Props = {
@@ -67,14 +103,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       : (createDefaults?.playedAt ?? toDateInput(new Date().toISOString()))
   );
   const [notes, setNotes] = useState(initialMatch?.notes ?? createDefaults?.notes ?? "");
-  const [matchMode, setMatchMode] = useState<"scheduled" | "loaded" | "played">(() => {
-    if (initialMatch?.status === "played") return "played";
-    if (initialMatch?.status === "loaded") return "loaded";
-    if (initialMatch?.status === "scheduled") return "scheduled";
-    if (createDefaults?.status === "loaded") return "loaded";
-    if (createDefaults?.status === "scheduled") return "scheduled";
-    return "scheduled";
-  });
+  const [matchMode, setMatchMode] = useState<MatchFormMode>(() =>
+    initialMatchMode(initialMatch, createDefaults)
+  );
   const [aScore, setAScore] = useState(initialMatch?.team_a_score ?? 0);
   const [bScore, setBScore] = useState(initialMatch?.team_b_score ?? 0);
 
@@ -115,6 +146,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const canPickMode = !initialMatch || initialMatch.status !== "played";
   const submitAsScheduled = canPickMode && matchMode === "scheduled";
   const submitAsLoaded = canPickMode && matchMode === "loaded";
+  const submitAsTeams = canPickMode && matchMode === "teams";
   const submitAsPlayed = matchMode === "played";
 
   const inMatch = useMemo(() => new Set([...teamA, ...teamB]), [teamA, teamB]);
@@ -161,6 +193,21 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     () => teamBSorted.reduce((sum, p) => sum + (goals[p.id] ?? 0), 0),
     [teamBSorted, goals]
   );
+
+  useEffect(() => {
+    if (!canPickMode || matchMode === "played") return;
+    if (convocados.size === 0) {
+      if (matchMode !== "scheduled") setMatchMode("scheduled");
+      return;
+    }
+    if (teamsEstablished) {
+      if (matchMode === "scheduled" || matchMode === "loaded") setMatchMode("teams");
+    } else if (matchMode === "teams") {
+      setMatchMode("loaded");
+    } else if (matchMode === "scheduled") {
+      setMatchMode("loaded");
+    }
+  }, [convocados.size, teamsEstablished, canPickMode, matchMode]);
 
   function toggleConvocado(playerId: string) {
     setConvocados((prev) => {
@@ -229,6 +276,53 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     });
   }
 
+  function validateTeamsForSave(): string | null {
+    if (convocados.size === 0) {
+      return "Elegí al menos un convocado desde el plantel disponible.";
+    }
+    for (const id of convocados) {
+      if (!teamA.has(id) && !teamB.has(id)) {
+        return `Asigná cada convocado a ${teamDisplayName("A")} o ${teamDisplayName("B")}.`;
+      }
+    }
+    for (const id of teamA) {
+      if (!convocados.has(id)) {
+        return `Hay jugadores en ${teamDisplayName("A")} que no están en la convocatoria.`;
+      }
+    }
+    for (const id of teamB) {
+      if (!convocados.has(id)) {
+        return `Hay jugadores en ${teamDisplayName("B")} que no están en la convocatoria.`;
+      }
+    }
+    if (teamA.size === 0 || teamB.size === 0) {
+      return `Elegí al menos un jugador por equipo (${teamDisplayName("A")} y ${teamDisplayName("B")}).`;
+    }
+    const overlap = [...teamA].filter((id) => teamB.has(id));
+    if (overlap.length) {
+      return "Un jugador no puede estar en los dos equipos.";
+    }
+    return null;
+  }
+
+  async function writeTeamsLineups(matchId: string) {
+    const db = getFirestoreDb();
+    await deleteDocsWhere("match_players", "match_id", matchId);
+    await deleteDocsWhere("match_goals", "match_id", matchId);
+    const ops: { player_id: string; team: Team }[] = [];
+    for (const player_id of [...teamA]) ops.push({ player_id, team: "A" });
+    for (const player_id of [...teamB]) ops.push({ player_id, team: "B" });
+    for (let i = 0; i < ops.length; i += 450) {
+      const batch = writeBatch(db);
+      const chunk = ops.slice(i, i + 450);
+      for (const { player_id, team } of chunk) {
+        const r = doc(collection(db, "match_players"));
+        batch.set(r, { match_id: matchId, player_id, team });
+      }
+      await batch.commit();
+    }
+  }
+
   async function writePoolLineups(matchId: string) {
     const db = getFirestoreDb();
     await deleteDocsWhere("match_players", "match_id", matchId);
@@ -254,8 +348,11 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         setError("En estado Cargado tenés que convocar al menos un jugador.");
         return;
       }
-      const status: MatchStatus = submitAsLoaded ? "loaded" : "scheduled";
-      const d1Mode = submitAsLoaded ? "loaded" : "scheduled";
+      const status: MatchStatus = resolveMatchStatus(
+        submitAsLoaded ? "loaded" : "scheduled",
+        rosterCountsFromSets(convocados, new Set(), new Set())
+      );
+      const d1Mode = status === "teams" ? "loaded" : status;
       setLoading(true);
       try {
         if (isD1Backend()) {
@@ -303,35 +400,62 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       return;
     }
 
-    if (convocados.size === 0) {
-      setError("Elegí al menos un convocado desde el plantel disponible.");
+    if (submitAsTeams) {
+      const teamErr = validateTeamsForSave();
+      if (teamErr) {
+        setError(teamErr);
+        return;
+      }
+      setLoading(true);
+      try {
+        if (isD1Backend()) {
+          await saveMatchD1({
+            id: editId ?? null,
+            mode: "teams",
+            played_at: playedAt,
+            notes: notes.trim() || null,
+            teams: { A: [...teamA], B: [...teamB] },
+          });
+          router.push("/admin/partidos");
+          router.refresh();
+          return;
+        }
+        const db = getFirestoreDb();
+        const notesVal = notes.trim() || null;
+        let matchId = editId;
+        if (editId) {
+          await updateDoc(doc(db, "matches", editId), {
+            played_at: playedAt,
+            team_a_score: 0,
+            team_b_score: 0,
+            status: "teams",
+            notes: notesVal,
+          });
+        } else {
+          const ref = await addDoc(collection(db, "matches"), {
+            played_at: playedAt,
+            team_a_score: 0,
+            team_b_score: 0,
+            status: "teams",
+            notes: notesVal,
+            created_at: new Date().toISOString(),
+          });
+          matchId = ref.id;
+        }
+        if (matchId) await writeTeamsLineups(matchId);
+        router.push("/admin/partidos");
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al guardar");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
-    for (const id of convocados) {
-      if (!teamA.has(id) && !teamB.has(id)) {
-        setError("Asigná cada convocado a equipo A o equipo B.");
-        return;
-      }
-    }
-    for (const id of teamA) {
-      if (!convocados.has(id)) {
-        setError("Hay jugadores en equipo A que no están en la convocatoria.");
-        return;
-      }
-    }
-    for (const id of teamB) {
-      if (!convocados.has(id)) {
-        setError("Hay jugadores en equipo B que no están en la convocatoria.");
-        return;
-      }
-    }
-    if (teamA.size === 0 || teamB.size === 0) {
-      setError("Elegí al menos un jugador por equipo (solo entre convocados).");
-      return;
-    }
-    const overlap = [...teamA].filter((id) => teamB.has(id));
-    if (overlap.length) {
-      setError("Un jugador no puede estar en los dos equipos.");
+
+    const teamErr = validateTeamsForSave();
+    if (teamErr) {
+      setError(teamErr);
       return;
     }
 
@@ -438,7 +562,18 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               className="size-4 accent-accent"
             />
             <span className="text-sm font-medium">Cargado</span>
-            <span className="text-xs text-muted">(convocatoria lista; aún sin resultado)</span>
+            <span className="text-xs text-muted">(convocatoria lista)</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
+            <input
+              type="radio"
+              name="match-mode"
+              checked={matchMode === "teams"}
+              onChange={() => setMatchMode("teams")}
+              className="size-4 accent-accent"
+            />
+            <span className="text-sm font-medium">Equipos</span>
+            <span className="text-xs text-muted">(Blanco y Negro antes del partido)</span>
           </label>
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
             <input
@@ -449,7 +584,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               className="size-4 accent-accent"
             />
             <span className="text-sm font-medium">Finalizado</span>
-            <span className="text-xs text-muted">(equipos, marcador y goles)</span>
+            <span className="text-xs text-muted">(marcador y goles)</span>
           </label>
         </fieldset>
       ) : null}
@@ -479,7 +614,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         {submitAsPlayed ? (
           <>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted">Goles equipo A</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                Goles {teamDisplayName("A")}
+              </span>
               <input
                 type="number"
                 min={0}
@@ -490,7 +627,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted">Goles equipo B</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                Goles {teamDisplayName("B")}
+              </span>
               <input
                 type="number"
                 min={0}
@@ -570,23 +709,23 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         </ul>
       </section>
 
-      {submitAsPlayed ? (
+      {submitAsTeams || submitAsPlayed ? (
         <>
           {convocadosSorted.length === 0 ? (
-            <p className="text-sm text-muted">Primero armá la convocatoria para asignar equipos y goles.</p>
-          ) : teamsEstablished ? (
+            <p className="text-sm text-muted">Primero armá la convocatoria para asignar Blanco y Negro.</p>
+          ) : submitAsPlayed && teamsEstablished ? (
             <section className="flex flex-col gap-4">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Equipos y goles</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">3 · Goles por equipo</h2>
                 <p className="mt-1 text-xs text-muted">
-                  Cada jugador en su equipo. Tocá − o + para los goles; deberían sumar el marcador de arriba.
+                  {teamDisplayName("A")} y {teamDisplayName("B")}. Tocá − o +; deberían sumar el marcador de arriba.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-surface-2 p-4">
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Equipo A</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{teamDisplayName("A")}</h3>
                     <span
                       className={`text-xs font-semibold tabular-nums ${
                         goalsSumA === aScore ? "text-accent" : "text-amber-400"
@@ -597,7 +736,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   </div>
                   {goalsSumA !== aScore ? (
                     <p className="mb-3 text-xs text-amber-400/90">
-                      Faltan o sobran goles respecto al marcador del equipo A.
+                      Faltan o sobran goles respecto al marcador de {teamDisplayName("A")}.
                     </p>
                   ) : null}
                   <ul className="flex flex-col gap-2">
@@ -618,7 +757,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                               onClick={() => assignToTeam(p.id, "B")}
                               className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted hover:text-fg"
                             >
-                              → B
+                              → {teamDisplayName("B")}
                             </button>
                           </div>
                           <div className="mt-2 flex items-center justify-end gap-2">
@@ -651,7 +790,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
 
                 <div className="rounded-2xl border border-border bg-surface-2 p-4">
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Equipo B</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{teamDisplayName("B")}</h3>
                     <span
                       className={`text-xs font-semibold tabular-nums ${
                         goalsSumB === bScore ? "text-emerald-400" : "text-amber-400"
@@ -662,7 +801,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   </div>
                   {goalsSumB !== bScore ? (
                     <p className="mb-3 text-xs text-amber-400/90">
-                      Faltan o sobran goles respecto al marcador del equipo B.
+                      Faltan o sobran goles respecto al marcador de {teamDisplayName("B")}.
                     </p>
                   ) : null}
                   <ul className="flex flex-col gap-2">
@@ -683,7 +822,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                               onClick={() => assignToTeam(p.id, "A")}
                               className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted hover:text-fg"
                             >
-                              → A
+                              → {teamDisplayName("A")}
                             </button>
                           </div>
                           <div className="mt-2 flex items-center justify-end gap-2">
@@ -718,12 +857,16 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           ) : (
             <section className="flex flex-col gap-4">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Armar equipos</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
+                  {submitAsTeams ? "2 · Blanco y Negro" : "3 · Blanco y Negro"}
+                </h2>
                 <p className="mt-1 text-xs text-muted">
-                  Asigná cada convocado a A o B. Cuando estén todos, vas a cargar goles por equipo.
+                  Asigná cada convocado a {teamDisplayName("A")} o {teamDisplayName("B")}. Los equipos cambian en cada
+                  fecha.
                 </p>
                 <p className="mt-2 text-xs font-medium tabular-nums text-muted">
-                  A: {teamA.size} · B: {teamB.size} · sin equipo: {sinEquipoSorted.length}
+                  {teamDisplayName("A")}: {teamA.size} · {teamDisplayName("B")}: {teamB.size} · sin equipo:{" "}
+                  {sinEquipoSorted.length}
                 </p>
               </div>
 
@@ -745,14 +888,14 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           onClick={() => assignToTeam(p.id, "A")}
                           className="min-h-[40px] rounded-lg border border-accent/50 bg-accent/15 px-4 text-sm font-bold text-accent"
                         >
-                          Equipo A
+                          {teamDisplayName("A")}
                         </button>
                         <button
                           type="button"
                           onClick={() => assignToTeam(p.id, "B")}
                           className="min-h-[40px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-4 text-sm font-bold text-emerald-400"
                         >
-                          Equipo B
+                          {teamDisplayName("B")}
                         </button>
                       </li>
                     ))}
@@ -763,7 +906,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-surface-2 p-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Equipo A ({teamA.size})
+                    {teamDisplayName("A")} ({teamA.size})
                   </h3>
                   {teamASorted.length === 0 ? (
                     <p className="mt-3 text-sm text-muted">Vacío</p>
@@ -791,7 +934,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
 
                 <div className="rounded-2xl border border-border bg-surface-2 p-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Equipo B ({teamB.size})
+                    {teamDisplayName("B")} ({teamB.size})
                   </h3>
                   {teamBSorted.length === 0 ? (
                     <p className="mt-3 text-sm text-muted">Vacío</p>
@@ -843,9 +986,13 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                 ? convocados.size > 0
                   ? `Guardar cargado · ${convocados.size} convocados`
                   : "Guardar partido cargado"
-                : convocados.size > 0
-                  ? `Crear partido finalizado · ${convocados.size} convocados`
-                  : "Crear partido finalizado"}
+                : submitAsTeams
+                  ? teamsEstablished
+                    ? `Guardar equipos · ${convocados.size} jugadores`
+                    : "Guardar equipos"
+                  : convocados.size > 0
+                    ? `Crear partido finalizado · ${convocados.size} convocados`
+                    : "Crear partido finalizado"}
       </button>
     </form>
   );

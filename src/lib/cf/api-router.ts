@@ -39,7 +39,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const body = (await request.json()) as { email?: string; password?: string };
       const email = String(body.email ?? "").trim().toLowerCase();
       const password = String(body.password ?? "");
-      if (!email || !password) return json({ error: "Email y contraseña requeridos" }, { status: 400 });
+      if (!email || !password) return json({ error: "Usuario y contraseña requeridos" }, { status: 400 });
       const row = await db.prepare("SELECT password_hash FROM admins WHERE email = ?").bind(email).first<{ password_hash: string }>();
       if (!row) return json({ error: "Credenciales inválidas" }, { status: 401 });
       const ok = await bcrypt.compare(password, row.password_hash);
@@ -171,7 +171,13 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           team_a_score: r.team_a_score,
           team_b_score: r.team_b_score,
           status:
-            r.status === "scheduled" ? "scheduled" : r.status === "loaded" ? "loaded" : "played",
+            r.status === "scheduled"
+              ? "scheduled"
+              : r.status === "loaded"
+                ? "loaded"
+                : r.status === "teams"
+                  ? "teams"
+                  : "played",
           notes: r.notes,
           created_at: r.created_at,
         })),
@@ -243,7 +249,13 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           team_a_score: m.team_a_score,
           team_b_score: m.team_b_score,
           status:
-            m.status === "scheduled" ? "scheduled" : m.status === "loaded" ? "loaded" : "played",
+            m.status === "scheduled"
+              ? "scheduled"
+              : m.status === "loaded"
+                ? "loaded"
+                : m.status === "teams"
+                  ? "teams"
+                  : "played",
           notes: m.notes,
           created_at: m.created_at,
           match_players,
@@ -257,7 +269,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       if (gate instanceof Response) return gate;
       const b = (await request.json()) as {
         id?: string | null;
-        mode: "scheduled" | "loaded" | "played";
+        mode: "scheduled" | "loaded" | "teams" | "played";
         played_at: string;
         notes: string | null;
         team_a_score?: number;
@@ -285,6 +297,20 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
                notes = excluded.notes`
           )
           .bind(matchId, playedAt, st, notes, created)
+          .run();
+      } else if (b.mode === "teams") {
+        await db
+          .prepare(
+            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at)
+             VALUES (?, ?, 0, 0, 'teams', ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               played_at = excluded.played_at,
+               team_a_score = 0,
+               team_b_score = 0,
+               status = 'teams',
+               notes = excluded.notes`
+          )
+          .bind(matchId, playedAt, notes, created)
           .run();
       } else {
         await db
@@ -320,7 +346,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
             .bind(crypto.randomUUID(), matchId, player_id)
         );
         if (stmts.length) await db.batch(stmts);
-      } else {
+      } else if (b.mode === "teams" || b.mode === "played") {
         const A = b.teams?.A ?? [];
         const B = b.teams?.B ?? [];
         const stmts: D1PreparedStatement[] = [];
@@ -334,13 +360,17 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
             db.prepare("INSERT INTO match_players (id, match_id, player_id, team) VALUES (?, ?, ?, 'B')").bind(crypto.randomUUID(), matchId, player_id)
           );
         }
-        const inMatch = new Set([...A, ...B]);
-        for (const [player_id, n] of Object.entries(b.goals ?? {})) {
-          const g = Number(n);
-          if (!g || g <= 0 || !inMatch.has(player_id)) continue;
-          stmts.push(
-            db.prepare("INSERT INTO match_goals (id, match_id, player_id, goals) VALUES (?, ?, ?, ?)").bind(crypto.randomUUID(), matchId, player_id, g)
-          );
+        if (b.mode === "played") {
+          const inMatch = new Set([...A, ...B]);
+          for (const [player_id, n] of Object.entries(b.goals ?? {})) {
+            const g = Number(n);
+            if (!g || g <= 0 || !inMatch.has(player_id)) continue;
+            stmts.push(
+              db
+                .prepare("INSERT INTO match_goals (id, match_id, player_id, goals) VALUES (?, ?, ?, ?)")
+                .bind(crypto.randomUUID(), matchId, player_id, g)
+            );
+          }
         }
         if (stmts.length) await db.batch(stmts);
       }

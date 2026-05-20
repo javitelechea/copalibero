@@ -20,7 +20,12 @@ import {
 } from "@/lib/demo-data";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { getFirestoreDb } from "@/lib/firebase/client";
-import { normalizeMatchStatus } from "@/lib/match-status";
+import {
+  normalizeMatchStatus,
+  resolveMatchStatus,
+  rosterCountsFromDetails,
+  rosterCountsFromLineups,
+} from "@/lib/match-status";
 import type {
   AsadoAttendeeRow,
   AsadoRow,
@@ -154,17 +159,36 @@ export async function fetchPlayerById(id: string): Promise<PlayerRow | null> {
   return playerFromDoc(d);
 }
 
+function matchesWithResolvedStatus(matches: MatchRow[], lineups: MatchPlayerRow[]): MatchRow[] {
+  return matches.map((m) => ({
+    ...m,
+    status: resolveMatchStatus(m.status, rosterCountsFromLineups(lineups, m.id)),
+  }));
+}
+
 export async function fetchMatches(): Promise<MatchRow[]> {
   if (isOfflineDemoData()) {
-    return [...DEMO_MATCHES].sort((a, b) => b.played_at.localeCompare(a.played_at));
+    return matchesWithResolvedStatus(
+      [...DEMO_MATCHES].sort((a, b) => b.played_at.localeCompare(a.played_at)),
+      DEMO_LINEUPS
+    );
   }
   if (isD1Backend()) {
-    const j = await cfJson<{ matches: MatchRow[] }>("matches");
-    return j.matches;
+    const [j, lineups] = await Promise.all([
+      cfJson<{ matches: MatchRow[] }>("matches"),
+      fetchMatchLineups(),
+    ]);
+    return matchesWithResolvedStatus(j.matches, lineups);
   }
   const db = getFirestoreDb();
-  const snap = await getDocs(query(collection(db, C.matches), orderBy("played_at", "desc")));
-  return snap.docs.map((d) => matchFromDoc(d));
+  const [snap, lineups] = await Promise.all([
+    getDocs(query(collection(db, C.matches), orderBy("played_at", "desc"))),
+    fetchMatchLineups(),
+  ]);
+  return matchesWithResolvedStatus(
+    snap.docs.map((d) => matchFromDoc(d)),
+    lineups
+  );
 }
 
 export async function fetchMatchLineups(): Promise<MatchPlayerRow[]> {
@@ -236,14 +260,22 @@ export async function fetchConfirmations(): Promise<MatchConfirmationRow[]> {
   });
 }
 
+function matchDetailsWithResolvedStatus(m: MatchWithDetails): MatchWithDetails {
+  return {
+    ...m,
+    status: resolveMatchStatus(m.status, rosterCountsFromDetails(m.match_players)),
+  };
+}
+
 export async function fetchMatchById(matchId: string): Promise<MatchWithDetails | null> {
   if (isOfflineDemoData()) {
-    return demoMatchById(matchId);
+    const m = demoMatchById(matchId);
+    return m ? matchDetailsWithResolvedStatus(m) : null;
   }
   if (isD1Backend()) {
     try {
       const j = await cfJson<{ match: MatchWithDetails }>(`matches/${encodeURIComponent(matchId)}`);
-      return j.match;
+      return matchDetailsWithResolvedStatus(j.match);
     } catch {
       return null;
     }
@@ -295,7 +327,7 @@ export async function fetchMatchById(matchId: string): Promise<MatchWithDetails 
     };
   });
 
-  return { ...match, match_players, match_goals };
+  return matchDetailsWithResolvedStatus({ ...match, match_players, match_goals });
 }
 
 export async function fetchAsados(): Promise<AsadoRow[]> {
@@ -466,7 +498,7 @@ export async function deleteDocsWhere(
 
 export type SaveMatchD1Body = {
   id?: string | null;
-  mode: "scheduled" | "loaded" | "played";
+  mode: "scheduled" | "loaded" | "teams" | "played";
   played_at: string;
   notes: string | null;
   team_a_score?: number;

@@ -10,7 +10,8 @@ import {
   type DraftRosterSlot,
 } from "@/lib/draft-teams";
 import type { StandingRow } from "@/lib/scoring";
-import type { MatchPlayerRow, MatchRow, PlayerRow } from "@/lib/types";
+import { teamDisplayName } from "@/lib/team-labels";
+import type { MatchPlayerRow, MatchRow, PlayerRow, Team } from "@/lib/types";
 import { Users } from "lucide-react";
 
 type Props = {
@@ -75,6 +76,11 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
   );
 
   if (nextMatch.status !== "scheduled" && nextMatch.status !== "loaded") return null;
+
+  function slotLabel(slot: DraftRosterSlot): string {
+    if (slot === "pool") return "—";
+    return teamDisplayName(slot as Team);
+  }
 
   function cycleTeam(playerId: string) {
     setManual(true);
@@ -160,7 +166,7 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
                 className="shrink-0 rounded-lg border border-border px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-muted hover:border-accent/50 hover:text-fg"
                 aria-label={`Equipo para ${p.display_name}: ${slot}`}
               >
-                {slot === "pool" ? "—" : slot}
+                {slotLabel(slot)}
               </button>
             </li>
           );
@@ -169,11 +175,11 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-xl border border-accent/25 bg-accent/5 px-2 py-2">
-          <p className="font-bold text-accent">Equipo A ({teamA.length})</p>
+          <p className="font-bold text-accent">{teamDisplayName("A")} ({teamA.length})</p>
           <p className="mt-1 line-clamp-4 text-muted">{teamA.map((p) => p.display_name).join(", ") || "—"}</p>
         </div>
         <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-2 py-2">
-          <p className="font-bold text-emerald-400">Equipo B ({teamB.length})</p>
+          <p className="font-bold text-emerald-400">{teamDisplayName("B")} ({teamB.length})</p>
           <p className="mt-1 line-clamp-4 text-muted">{teamB.map((p) => p.display_name).join(", ") || "—"}</p>
         </div>
       </div>
