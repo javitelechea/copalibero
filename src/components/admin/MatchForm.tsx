@@ -441,8 +441,38 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         )}
       </div>
 
+      <div
+        className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-surface/80"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">Convocatoria del partido</p>
+          <p className="text-sm text-fg">
+            {convocados.size === 0
+              ? "Tocá jugadores abajo para convocar"
+              : convocados.size === 1
+                ? "1 jugador convocado"
+                : `${convocados.size} jugadores convocados`}
+          </p>
+        </div>
+        <span
+          className={`flex size-12 shrink-0 items-center justify-center rounded-full text-xl font-black tabular-nums ${
+            convocados.size > 0 ? "bg-accent text-canvas" : "border-2 border-dashed border-border text-muted"
+          }`}
+          aria-label={`${convocados.size} convocados`}
+        >
+          {convocados.size}
+        </span>
+      </div>
+
       <section className="rounded-2xl border border-border bg-surface-2 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
+          <span className="text-xs font-medium tabular-nums text-muted">
+            {convocados.size} / {rosterActive.length} convocados
+          </span>
+        </div>
         <p className="mt-1 text-xs text-muted">
           Solo jugadores activos. Tocá para sumar o sacar de la convocatoria de este partido.
         </p>
@@ -460,7 +490,13 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               >
                 <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
                 <span className="font-medium">{p.display_name}</span>
-                <span className="ml-auto text-xs text-muted">{convocados.has(p.id) ? "Convocado" : "Disponible"}</span>
+                <span
+                  className={`ml-auto text-xs font-semibold tabular-nums ${
+                    convocados.has(p.id) ? "text-accent" : "text-muted"
+                  }`}
+                >
+                  {convocados.has(p.id) ? "✓ Convocado" : "Sumar"}
+                </span>
               </button>
             </li>
           ))}
@@ -468,7 +504,16 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       </section>
 
       <section className="rounded-2xl border border-border bg-surface-2 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Convocados</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">2 · Convocados</h2>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${
+              convocados.size > 0 ? "bg-accent/15 text-accent" : "bg-surface text-muted"
+            }`}
+          >
+            {convocados.size} {convocados.size === 1 ? "jugador" : "jugadores"}
+          </span>
+        </div>
         <p className="mt-1 text-xs text-muted">
           {submitAsScheduled
             ? "Se guardan como convocatoria del partido (aún sin equipos)."
@@ -498,7 +543,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       {!submitAsScheduled ? (
         <>
           <section>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">3 · Equipo A (solo convocados)</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
+              3 · Equipo A ({teamA.size} de {convocados.size})
+            </h2>
             {convocadosSorted.length === 0 ? (
               <p className="mt-2 text-sm text-muted">Primero armá la convocatoria.</p>
             ) : (
@@ -524,7 +571,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           </section>
 
           <section>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">3 · Equipo B (solo convocados)</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
+              3 · Equipo B ({teamB.size} de {convocados.size})
+            </h2>
             {convocadosSorted.length === 0 ? (
               <p className="mt-2 text-sm text-muted">Primero armá la convocatoria.</p>
             ) : (
@@ -586,7 +635,19 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         disabled={loading}
         className="min-h-[52px] rounded-xl bg-accent text-base font-bold text-canvas transition hover:opacity-90 disabled:opacity-50"
       >
-        {loading ? "Guardando…" : editId ? "Guardar cambios" : submitAsScheduled ? "Crear partido programado" : "Crear partido"}
+        {loading
+          ? "Guardando…"
+          : editId
+            ? convocados.size > 0
+              ? `Guardar cambios · ${convocados.size} convocados`
+              : "Guardar cambios"
+            : submitAsScheduled
+              ? convocados.size > 0
+                ? `Crear partido programado · ${convocados.size} convocados`
+                : "Crear partido programado"
+              : convocados.size > 0
+                ? `Crear partido · ${convocados.size} convocados`
+                : "Crear partido"}
       </button>
     </form>
   );

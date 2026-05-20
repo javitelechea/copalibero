@@ -150,7 +150,14 @@ export default function PartidoDetailPage() {
       </section>
 
       <section className="rounded-2xl border border-border bg-surface p-4">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Jugadores convocados</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Jugadores convocados</h2>
+          {convocadosSorted.length > 0 ? (
+            <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold tabular-nums text-accent">
+              {convocadosSorted.length}
+            </span>
+          ) : null}
+        </div>
         {convocadosSorted.length === 0 ? (
           <p className="text-sm text-muted">Sin convocatoria cargada todavía.</p>
         ) : (
