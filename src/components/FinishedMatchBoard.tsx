@@ -51,11 +51,11 @@ function TeamColumn({
               <li key={p.id}>
                 <Link
                   href={`/jugadores/${p.id}`}
-                  className={`flex items-center gap-2 px-3 py-2.5 transition hover:bg-white/5 ${
+                  className={`flex items-center gap-1.5 px-2.5 py-2 transition hover:bg-white/5 sm:px-3 ${
                     align === "right" ? "flex-row-reverse text-right" : ""
                   }`}
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium leading-snug sm:text-[0.8125rem]">
                     {p.display_name}
                   </span>
                   <GoalBallIcons count={goals} />

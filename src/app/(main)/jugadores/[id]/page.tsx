@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { GoalBallIcons } from "@/components/GoalBallIcons";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
@@ -166,7 +167,12 @@ export default function JugadorPage() {
                     }
                   >
                     {result === "win" ? "Victoria" : result === "draw" ? "Empate" : "Derrota"}
-                    {g > 0 ? ` · ${g} gol${g > 1 ? "es" : ""}` : ""}
+                    {g > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-muted"> · </span>
+                        <GoalBallIcons count={g} size="sm" />
+                      </span>
+                    ) : null}
                   </span>
                 </Link>
               </li>

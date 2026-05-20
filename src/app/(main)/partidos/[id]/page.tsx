@@ -103,13 +103,44 @@ export default function PartidoDetailPage() {
       </header>
 
       {isFinalized ? (
-        <FinishedMatchBoard
-          scoreA={match.team_a_score}
-          scoreB={match.team_b_score}
-          teamA={teamAPlayers}
-          teamB={teamBPlayers}
-          goalsByPlayer={goalsByPlayer}
-        />
+        <>
+          <FinishedMatchBoard
+            scoreA={match.team_a_score}
+            scoreB={match.team_b_score}
+            teamA={teamAPlayers}
+            teamB={teamBPlayers}
+            goalsByPlayer={goalsByPlayer}
+          />
+
+          <section className="rounded-2xl border border-border bg-surface p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Jugadores convocados</h2>
+              {convocadosSorted.length > 0 ? (
+                <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold tabular-nums text-accent">
+                  {convocadosSorted.length}
+                </span>
+              ) : null}
+            </div>
+            {convocadosSorted.length === 0 ? (
+              <p className="text-sm text-muted">Sin convocatoria cargada.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {convocadosSorted.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={`/jugadores/${p.id}`}
+                      className="flex items-center gap-2 rounded-xl py-1.5 transition hover:bg-surface-2"
+                    >
+                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
+                      <span className="min-w-0 flex-1 truncate font-medium">{p.display_name}</span>
+                      <GoalBallIcons count={goalsByPlayer.get(p.id) ?? 0} size="sm" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
       ) : (
         <>
           <div className="rounded-3xl border border-border bg-gradient-to-br from-surface to-surface-2 px-6 py-8 text-center shadow-[var(--shadow-glow)]">
