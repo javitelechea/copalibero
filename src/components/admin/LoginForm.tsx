@@ -58,7 +58,9 @@ export function LoginForm() {
       const admin = await isUserAdmin(cred.user.uid);
       if (!admin) {
         await signOut(auth);
-        setError("Esta cuenta no tiene permisos de administrador.");
+        setError(
+          `Esta cuenta no tiene permisos de admin. En Firebase → Firestore creá el documento admins/${cred.user.uid} (el ID del documento debe ser exactamente ese UID).`
+        );
         return;
       }
       router.push("/admin");
