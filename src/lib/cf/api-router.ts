@@ -36,8 +36,12 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
 
   try {
     if (path === "auth/login" && method === "POST") {
-      const body = (await request.json()) as { email?: string; password?: string };
-      const email = String(body.email ?? "").trim().toLowerCase();
+      const body = (await request.json()) as {
+        email?: string;
+        username?: string;
+        password?: string;
+      };
+      const email = String(body.username ?? body.email ?? "").trim().toLowerCase();
       const password = String(body.password ?? "");
       if (!email || !password) return json({ error: "Usuario y contraseña requeridos" }, { status: 400 });
       const row = await db.prepare("SELECT password_hash FROM admins WHERE email = ?").bind(email).first<{ password_hash: string }>();

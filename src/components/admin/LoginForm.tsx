@@ -7,25 +7,42 @@ import { getFirebaseAuth } from "@/lib/firebase/client";
 import { isD1Backend } from "@/lib/env";
 import { isUserAdmin } from "@/lib/firestore-queries";
 
+function normalizeUsername(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+/** Solo para Firebase Auth (pide formato mail). */
+function firebaseLoginEmail(username: string): string {
+  if (!username) return username;
+  if (username.includes("@")) return username;
+  return `${username}@copalibero.local`;
+}
+
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const d1 = isD1Backend();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const useD1 = isD1Backend();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const id = normalizeUsername(username);
+    if (!id) {
+      setError("Ingresá tu usuario.");
+      setLoading(false);
+      return;
+    }
     try {
-      if (isD1Backend()) {
+      if (useD1) {
         const r = await fetch("/api/copalibero/auth/login", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ username: id, password }),
         });
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         if (!r.ok) {
@@ -37,7 +54,7 @@ export function LoginForm() {
       }
 
       const auth = getFirebaseAuth();
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const cred = await signInWithEmailAndPassword(auth, firebaseLoginEmail(id), password);
       const admin = await isUserAdmin(cred.user.uid);
       if (!admin) {
         await signOut(auth);
@@ -55,17 +72,22 @@ export function LoginForm() {
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       <label className="block">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">
-          {d1 ? "Usuario" : "Email"}
-        </span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted">Usuario</span>
         <input
-          type={d1 ? "text" : "email"}
-          autoComplete={d1 ? "username" : "email"}
+          type="text"
+          name="username"
+          autoComplete="username"
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          placeholder="ej. mosca"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="mt-1 w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none ring-accent/30 focus:ring-2"
         />
+        <p className="mt-1 text-xs text-muted">Sin mail: solo el nombre de usuario (mosca, iorgo…).</p>
       </label>
       <label className="block">
         <span className="text-xs font-medium uppercase tracking-wide text-muted">Contraseña</span>

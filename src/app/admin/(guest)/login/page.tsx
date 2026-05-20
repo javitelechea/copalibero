@@ -100,7 +100,7 @@ export default function AdminLoginPage() {
         </Link>
         <div className="rounded-3xl border border-border bg-surface p-8 shadow-[var(--shadow-glow)]">
           <h1 className="text-center text-xl font-bold">Administración</h1>
-          <p className="mt-1 text-center text-sm text-muted">Ingresá con la cuenta de administrador (D1)</p>
+          <p className="mt-1 text-center text-sm text-muted">Usuario y contraseña (sin correo)</p>
           <div className="mt-8">
             <LoginForm />
           </div>
@@ -145,7 +145,7 @@ export default function AdminLoginPage() {
       </Link>
       <div className="rounded-3xl border border-border bg-surface p-8 shadow-[var(--shadow-glow)]">
         <h1 className="text-center text-xl font-bold">Administración</h1>
-        <p className="mt-1 text-center text-sm text-muted">Ingresá con tu cuenta de administrador</p>
+        <p className="mt-1 text-center text-sm text-muted">Usuario y contraseña (sin correo)</p>
         <div className="mt-8">
           <LoginForm />
         </div>
