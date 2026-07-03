@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crosshair, Home, Shield, Trophy, Users } from "lucide-react";
+import { Crown, Crosshair, Home, Shield, Trophy, Users } from "lucide-react";
 
 const items = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/partidos", label: "Partidos", icon: Trophy },
   { href: "/jugadores", label: "Jugadores", icon: Users },
   { href: "/goleadores", label: "Goleadores", icon: Crosshair },
+  { href: "/paternidades", label: "Padres", icon: Crown },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
 
@@ -21,7 +22,7 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-md"
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto flex max-w-xl items-stretch justify-around px-1 pt-1">
+      <div className="mx-auto flex max-w-xl items-stretch justify-around px-0.5 pt-1">
         {items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/"
@@ -31,7 +32,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex min-h-[52px] min-w-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[11px] font-medium transition-colors ${
+              className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 text-[10px] font-medium transition-colors sm:text-[11px] ${
                 active
                   ? "text-accent"
                   : "text-muted hover:text-fg"
