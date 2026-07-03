@@ -1,4 +1,5 @@
 import { comparePlayers, playerLabel } from "@/lib/player-label";
+import { matchOutcomeTeam } from "@/lib/match-outcome";
 import type { MatchPlayerRow, MatchRow, PlayerRow } from "@/lib/types";
 
 export type DuelRecord = {
@@ -23,8 +24,7 @@ function pairKey(idA: string, idB: string): [string, string] {
 }
 
 function matchOutcome(match: MatchRow): "A" | "B" | "draw" {
-  if (match.team_a_score === match.team_b_score) return "draw";
-  return match.team_a_score > match.team_b_score ? "A" : "B";
+  return matchOutcomeTeam(match);
 }
 
 /**

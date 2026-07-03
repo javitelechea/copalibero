@@ -108,6 +108,7 @@ export default function PartidoDetailPage() {
           <FinishedMatchBoard
             scoreA={match.team_a_score}
             scoreB={match.team_b_score}
+            goldenGoalWinner={match.golden_goal_winner}
             teamA={teamAPlayers}
             teamB={teamBPlayers}
             goalsByPlayer={goalsByPlayer}

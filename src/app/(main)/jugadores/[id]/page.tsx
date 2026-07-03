@@ -17,6 +17,7 @@ import {
 } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
 import { computeStandings } from "@/lib/scoring";
+import { matchScoreSummary, teamMatchResult, teamResultLabel } from "@/lib/match-outcome";
 import type { MatchRow, PlayerRow, Team } from "@/lib/types";
 
 export default function JugadorPage() {
@@ -62,12 +63,7 @@ export default function JugadorPage() {
       .map((m) => {
         const lu = lineups.find((l) => l.match_id === m.id && l.player_id === id);
         if (!lu || lu.team === "pool") return null;
-        const a = m.team_a_score;
-        const b = m.team_b_score;
-        let result: "win" | "draw" | "loss";
-        if (a === b) result = "draw";
-        else if (lu.team === "A") result = a > b ? "win" : "loss";
-        else result = b > a ? "win" : "loss";
+        const result = teamMatchResult(m, lu.team as Team);
         const gCount = goals
           .filter((x) => x.match_id === m.id && x.player_id === id)
           .reduce((s, x) => s + x.goals, 0);
@@ -141,7 +137,7 @@ export default function JugadorPage() {
           <p className="text-muted">Todavía no registró partidos en el torneo.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {played.map(({ match: m, result, goals: g }) => (
+            {played.map(({ match: m, team, result, goals: g }) => (
               <li key={m.id}>
                 <Link
                   href={`/partidos/${m.id}`}
@@ -153,9 +149,7 @@ export default function JugadorPage() {
                       month: "short",
                     })}
                   </span>
-                  <span className="font-mono font-bold">
-                    {m.team_a_score} — {m.team_b_score}
-                  </span>
+                  <span className="font-mono font-bold">{matchScoreSummary(m)}</span>
                   <span
                     className={
                       result === "win"
@@ -165,7 +159,7 @@ export default function JugadorPage() {
                           : "text-muted"
                     }
                   >
-                    {result === "win" ? "Victoria" : result === "draw" ? "Empate" : "Derrota"}
+                    {teamResultLabel(m, team)}
                     {g > 0 ? (
                       <span className="inline-flex items-center gap-1">
                         <span className="text-muted"> · </span>

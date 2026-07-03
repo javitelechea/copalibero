@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchMatches } from "@/lib/firestore-queries";
 import { LIBERO_MATCH_NOTES, nextThursdayLocalYmd } from "@/lib/weekly-match-defaults";
 import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
+import { matchScoreSummary } from "@/lib/match-outcome";
 import type { MatchRow } from "@/lib/types";
 import { ChevronRight, Plus } from "lucide-react";
 
@@ -69,7 +70,7 @@ export default function AdminPartidosPage() {
               </span>
               {showsMatchScore(m.status) ? (
                 <span className="font-mono font-bold tabular-nums">
-                  {m.team_a_score} — {m.team_b_score}
+                  {matchScoreSummary(m)}
                 </span>
               ) : (
                 <span className="text-sm font-bold text-accent">{matchStatusLabel(m.status)}</span>

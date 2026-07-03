@@ -14,6 +14,7 @@ type PlayerMini = {
 type Props = {
   scoreA: number;
   scoreB: number;
+  goldenGoalWinner?: Team | null;
   teamA: PlayerMini[];
   teamB: PlayerMini[];
   goalsByPlayer: Map<string, number>;
@@ -71,9 +72,20 @@ function TeamColumn({
   );
 }
 
-export function FinishedMatchBoard({ scoreA, scoreB, teamA, teamB, goalsByPlayer }: Props) {
-  const blancoWins = scoreA > scoreB;
-  const negroWins = scoreB > scoreA;
+export function FinishedMatchBoard({
+  scoreA,
+  scoreB,
+  goldenGoalWinner = null,
+  teamA,
+  teamB,
+  goalsByPlayer,
+}: Props) {
+  const winner =
+    goldenGoalWinner ??
+    (scoreA > scoreB ? "A" : scoreB > scoreA ? "B" : null);
+  const blancoWins = winner === "A";
+  const negroWins = winner === "B";
+  const isGoldenGoal = goldenGoalWinner === "A" || goldenGoalWinner === "B";
 
   return (
     <section className="overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-[#1a2744] via-surface-2 to-surface shadow-[var(--shadow-glow)]">
@@ -109,6 +121,11 @@ export function FinishedMatchBoard({ scoreA, scoreB, teamA, teamB, goalsByPlayer
         >
           {teamDisplayName("B")}
         </p>
+        {isGoldenGoal ? (
+          <p className="col-span-3 -mt-1 text-center text-[0.65rem] font-bold uppercase tracking-widest text-amber-400/90">
+            Gol de oro · {teamDisplayName(goldenGoalWinner!)}
+          </p>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2">

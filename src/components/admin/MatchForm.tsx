@@ -18,6 +18,18 @@ import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchStatus, MatchWithDetails, PlayerRow, Team } from "@/lib/types";
 
 type MatchFormMode = "scheduled" | "loaded" | "teams" | "played";
+type ResultMode = "regular" | "draw" | "golden_goal";
+
+function initialResultMode(initialMatch: MatchWithDetails | null | undefined): ResultMode {
+  if (initialMatch?.golden_goal_winner) return "golden_goal";
+  if (
+    initialMatch?.status === "played" &&
+    initialMatch.team_a_score === initialMatch.team_b_score
+  ) {
+    return "draw";
+  }
+  return "regular";
+}
 
 function initialMatchMode(
   initialMatch: MatchWithDetails | null | undefined,
@@ -111,6 +123,10 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   );
   const [aScore, setAScore] = useState(initialMatch?.team_a_score ?? 0);
   const [bScore, setBScore] = useState(initialMatch?.team_b_score ?? 0);
+  const [resultMode, setResultMode] = useState<ResultMode>(() => initialResultMode(initialMatch));
+  const [goldenGoalWinner, setGoldenGoalWinner] = useState<Team | null>(
+    initialMatch?.golden_goal_winner ?? null
+  );
 
   const [convocados, setConvocados] = useState<Set<string>>(() => {
     const s = new Set<string>();
@@ -348,6 +364,25 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     return null;
   }
 
+  function validatePlayedResult(): string | null {
+    if (resultMode === "draw" && aScore !== bScore) {
+      return "En empate los goles de ambos equipos tienen que ser iguales.";
+    }
+    if (resultMode === "golden_goal") {
+      if (aScore !== bScore) {
+        return "En gol de oro el marcador debe estar empatado.";
+      }
+      if (!goldenGoalWinner) {
+        return `Elegí qué equipo ganó por gol de oro (${teamDisplayName("A")} o ${teamDisplayName("B")}).`;
+      }
+    }
+    return null;
+  }
+
+  function goldenGoalWinnerForSave(): Team | null {
+    return resultMode === "golden_goal" ? goldenGoalWinner : null;
+  }
+
   async function writeTeamsLineups(matchId: string) {
     const db = getFirestoreDb();
     await deleteDocsWhere("match_players", "match_id", matchId);
@@ -418,6 +453,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
+            golden_goal_winner: null,
             status,
             notes: notesVal,
           });
@@ -426,6 +462,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
+            golden_goal_winner: null,
             status,
             notes: notesVal,
             created_at: new Date().toISOString(),
@@ -471,6 +508,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
+            golden_goal_winner: null,
             status: "teams",
             notes: notesVal,
           });
@@ -479,6 +517,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             played_at: playedAt,
             team_a_score: 0,
             team_b_score: 0,
+            golden_goal_winner: null,
             status: "teams",
             notes: notesVal,
             created_at: new Date().toISOString(),
@@ -501,9 +540,15 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       setError(teamErr);
       return;
     }
+    const resultErr = validatePlayedResult();
+    if (resultErr) {
+      setError(resultErr);
+      return;
+    }
 
     setLoading(true);
     try {
+      const ggWinner = goldenGoalWinnerForSave();
       if (isD1Backend()) {
         await saveMatchD1({
           id: editId ?? null,
@@ -512,6 +557,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           notes: notes.trim() || null,
           team_a_score: aScore,
           team_b_score: bScore,
+          golden_goal_winner: ggWinner,
           teams: { A: [...teamA], B: [...teamB] },
           goals,
         });
@@ -527,6 +573,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           played_at: playedAt,
           team_a_score: aScore,
           team_b_score: bScore,
+          golden_goal_winner: ggWinner,
           status: "played",
           notes: notes.trim() || null,
         });
@@ -538,6 +585,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           played_at: playedAt,
           team_a_score: aScore,
           team_b_score: bScore,
+          golden_goal_winner: ggWinner,
           status: "played",
           notes: notes.trim() || null,
           created_at: new Date().toISOString(),
@@ -682,6 +730,74 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                 className="mt-1 w-full rounded-xl border border-border bg-surface-2 px-4 py-3 font-mono tabular-nums outline-none focus:ring-2 focus:ring-accent/30"
               />
             </label>
+            <fieldset className="sm:col-span-2 flex flex-col gap-2 rounded-2xl border border-border bg-surface-2 p-4">
+              <legend className="px-1 text-xs font-bold uppercase tracking-wide text-muted">Resultado</legend>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
+                <input
+                  type="radio"
+                  name="result-mode"
+                  checked={resultMode === "regular"}
+                  onChange={() => {
+                    setResultMode("regular");
+                    setGoldenGoalWinner(null);
+                  }}
+                  className="size-4 accent-accent"
+                />
+                <span className="text-sm font-medium">Victoria normal</span>
+                <span className="text-xs text-muted">(un equipo gana por diferencia de goles)</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
+                <input
+                  type="radio"
+                  name="result-mode"
+                  checked={resultMode === "draw"}
+                  onChange={() => {
+                    setResultMode("draw");
+                    setGoldenGoalWinner(null);
+                  }}
+                  className="size-4 accent-accent"
+                />
+                <span className="text-sm font-medium">Empate</span>
+                <span className="text-xs text-muted">(mismo marcador; +1 pt por equipo)</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 has-[:checked]:border-accent/40 has-[:checked]:bg-accent/10">
+                <input
+                  type="radio"
+                  name="result-mode"
+                  checked={resultMode === "golden_goal"}
+                  onChange={() => setResultMode("golden_goal")}
+                  className="size-4 accent-accent"
+                />
+                <span className="text-sm font-medium">Gol de oro</span>
+                <span className="text-xs text-muted">(empate + ganador; el perdedor suma +1 bonus)</span>
+              </label>
+              {resultMode === "golden_goal" ? (
+                <div className="mt-1 flex flex-wrap gap-2 px-2">
+                  <button
+                    type="button"
+                    onClick={() => setGoldenGoalWinner("A")}
+                    className={`min-h-[40px] rounded-lg border px-4 text-sm font-bold ${
+                      goldenGoalWinner === "A"
+                        ? "border-accent bg-accent/20 text-accent"
+                        : "border-border text-muted hover:text-fg"
+                    }`}
+                  >
+                    G.O. {teamDisplayName("A")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGoldenGoalWinner("B")}
+                    className={`min-h-[40px] rounded-lg border px-4 text-sm font-bold ${
+                      goldenGoalWinner === "B"
+                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                        : "border-border text-muted hover:text-fg"
+                    }`}
+                  >
+                    G.O. {teamDisplayName("B")}
+                  </button>
+                </div>
+              ) : null}
+            </fieldset>
           </>
         ) : (
           <p className="sm:col-span-2 text-sm text-muted">

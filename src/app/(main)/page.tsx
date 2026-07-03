@@ -18,6 +18,7 @@ import {
 import { matchStatusLabel } from "@/lib/match-status";
 import { formatMatchDayShort, pickLastPlayedMatch, pickNextScheduledMatch } from "@/lib/next-match";
 import { computeStandings } from "@/lib/scoring";
+import { matchScoreSummary } from "@/lib/match-outcome";
 import type { MatchRow } from "@/lib/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -295,7 +296,7 @@ export default function HomePage() {
                     })}
                   </span>
                   <span className="font-mono font-bold tabular-nums">
-                    {m.team_a_score} — {m.team_b_score}
+                    {matchScoreSummary(m)}
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted" />
                 </Link>

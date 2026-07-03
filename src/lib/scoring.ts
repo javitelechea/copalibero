@@ -1,11 +1,11 @@
 import { comparePlayers } from "@/lib/player-label";
+import { isGoldenGoalMatch, teamMatchResult } from "@/lib/match-outcome";
 import type {
   ConfirmationStatus,
   MatchGoalRow,
   MatchPlayerRow,
   MatchRow,
   PlayerRow,
-  Team,
 } from "@/lib/types";
 
 /** Puntos por reglas del torneo — ajustá acá */
@@ -22,6 +22,8 @@ export const SCORING = {
   /** Bonus si el equipo gana por esta diferencia de goles o más (p. ej. 3 → 3–0, 4–1, …) */
   bigWinMarginMin: 3,
   bigWinBonus: 1,
+  /** Bonus para el equipo que pierde por gol de oro (además de presencia). */
+  goldenGoalLossBonus: 1,
 } as const;
 
 export type StandingRow = {
@@ -39,18 +41,6 @@ export type StandingRow = {
 };
 
 type StandingAccum = Omit<StandingRow, "player"> & { playerId: string };
-
-function outcomeForTeam(
-  match: MatchRow,
-  team: Team
-): "win" | "draw" | "loss" {
-  if (match.status !== "played") return "draw";
-  const a = match.team_a_score;
-  const b = match.team_b_score;
-  if (a === b) return "draw";
-  if (team === "A") return a > b ? "win" : "loss";
-  return b > a ? "win" : "loss";
-}
 
 function matchPointsForOutcome(outcome: "win" | "draw" | "loss"): number {
   if (outcome === "win") return SCORING.win;
@@ -110,12 +100,12 @@ export function computeStandings(
       st.played += 1;
       st.presence += 1;
       st.points += SCORING.presence;
-      const o = outcomeForTeam(m, team);
+      const o = teamMatchResult(m, team);
       if (o === "win") st.wins += 1;
       else if (o === "draw") st.draws += 1;
       else st.losses += 1;
       st.points += matchPointsForOutcome(o);
-      if (o === "win") {
+      if (o === "win" && !isGoldenGoalMatch(m)) {
         const diff =
           team === "A"
             ? m.team_a_score - m.team_b_score
@@ -124,6 +114,10 @@ export function computeStandings(
           st.points += SCORING.bigWinBonus;
           st.bonus += SCORING.bigWinBonus;
         }
+      }
+      if (o === "loss" && isGoldenGoalMatch(m)) {
+        st.points += SCORING.goldenGoalLossBonus;
+        st.bonus += SCORING.goldenGoalLossBonus;
       }
       const gk = `${m.id}:${row.player_id}`;
       const g = goalsByPlayerMatch.get(gk) ?? 0;

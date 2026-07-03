@@ -26,6 +26,7 @@ import {
   rosterCountsFromDetails,
   rosterCountsFromLineups,
 } from "@/lib/match-status";
+import { parseGoldenGoalWinner } from "@/lib/match-outcome";
 import type {
   MatchConfirmationRow,
   MatchGoalRow,
@@ -34,6 +35,7 @@ import type {
   MatchRow,
   MatchWithDetails,
   PlayerRow,
+  Team,
 } from "@/lib/types";
 
 const C = {
@@ -106,6 +108,7 @@ function matchFromDoc(d: { id: string; data: () => Record<string, unknown> }): M
     played_at: String(x.played_at ?? "").slice(0, 10),
     team_a_score: Number(x.team_a_score ?? 0),
     team_b_score: Number(x.team_b_score ?? 0),
+    golden_goal_winner: parseGoldenGoalWinner(x.golden_goal_winner),
     status: normalizeMatchStatus(x.status),
     notes: x.notes != null ? String(x.notes) : null,
     created_at: isoFromField(x.created_at),
@@ -364,6 +367,7 @@ export type SaveMatchD1Body = {
   notes: string | null;
   team_a_score?: number;
   team_b_score?: number;
+  golden_goal_winner?: Team | null;
   pool?: string[];
   teams?: { A: string[]; B: string[] };
   goals?: Record<string, number>;

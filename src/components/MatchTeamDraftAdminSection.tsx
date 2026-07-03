@@ -60,6 +60,7 @@ export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails 
     played_at: match.played_at,
     team_a_score: match.team_a_score,
     team_b_score: match.team_b_score,
+    golden_goal_winner: match.golden_goal_winner,
     status: match.status,
     notes: match.notes,
     created_at: match.created_at,

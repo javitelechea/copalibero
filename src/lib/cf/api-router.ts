@@ -10,6 +10,41 @@ import {
 } from "@/lib/cf/session-cookie";
 
 import { defaultNicknameForDisplayName } from "@/lib/first-match-roster";
+import { parseGoldenGoalWinner } from "@/lib/match-outcome";
+
+type D1MatchRow = {
+  id: string;
+  played_at: string;
+  team_a_score: number;
+  team_b_score: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  golden_goal_winner?: string | null;
+};
+
+const MATCH_COLUMNS =
+  "id, played_at, team_a_score, team_b_score, status, notes, created_at, golden_goal_winner";
+
+function normalizeD1MatchStatus(status: string) {
+  if (status === "scheduled") return "scheduled";
+  if (status === "loaded") return "loaded";
+  if (status === "teams") return "teams";
+  return "played";
+}
+
+function matchJsonFromRow(r: D1MatchRow) {
+  return {
+    id: r.id,
+    played_at: String(r.played_at).slice(0, 10),
+    team_a_score: r.team_a_score,
+    team_b_score: r.team_b_score,
+    golden_goal_winner: parseGoldenGoalWinner(r.golden_goal_winner),
+    status: normalizeD1MatchStatus(r.status),
+    notes: r.notes,
+    created_at: r.created_at,
+  };
+}
 
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
@@ -185,35 +220,10 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
 
     if (path === "matches" && method === "GET") {
       const { results } = await db
-        .prepare(
-          "SELECT id, played_at, team_a_score, team_b_score, status, notes, created_at FROM matches ORDER BY played_at DESC"
-        )
-        .all<{
-          id: string;
-          played_at: string;
-          team_a_score: number;
-          team_b_score: number;
-          status: string;
-          notes: string | null;
-          created_at: string;
-        }>();
+        .prepare(`SELECT ${MATCH_COLUMNS} FROM matches ORDER BY played_at DESC`)
+        .all<D1MatchRow>();
       return json({
-        matches: (results ?? []).map((r) => ({
-          id: r.id,
-          played_at: String(r.played_at).slice(0, 10),
-          team_a_score: r.team_a_score,
-          team_b_score: r.team_b_score,
-          status:
-            r.status === "scheduled"
-              ? "scheduled"
-              : r.status === "loaded"
-                ? "loaded"
-                : r.status === "teams"
-                  ? "teams"
-                  : "played",
-          notes: r.notes,
-          created_at: r.created_at,
-        })),
+        matches: (results ?? []).map((r) => matchJsonFromRow(r)),
       });
     }
 
@@ -248,19 +258,9 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (matchGet && method === "GET") {
       const matchId = matchGet[1];
       const m = await db
-        .prepare(
-          "SELECT id, played_at, team_a_score, team_b_score, status, notes, created_at FROM matches WHERE id = ?"
-        )
+        .prepare(`SELECT ${MATCH_COLUMNS} FROM matches WHERE id = ?`)
         .bind(matchId)
-        .first<{
-          id: string;
-          played_at: string;
-          team_a_score: number;
-          team_b_score: number;
-          status: string;
-          notes: string | null;
-          created_at: string;
-        }>();
+        .first<D1MatchRow>();
       if (!m) return json({ error: "No encontrado" }, { status: 404 });
       const line = await db.prepare("SELECT player_id, team FROM match_players WHERE match_id = ?").bind(matchId).all<{ player_id: string; team: string }>();
       const goals = await db.prepare("SELECT id, player_id, goals FROM match_goals WHERE match_id = ?").bind(matchId).all<{ id: string; player_id: string; goals: number }>();
@@ -286,20 +286,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const match_goals = (goals.results ?? []).map((g) => ({ id: g.id, player_id: g.player_id, goals: g.goals }));
       return json({
         match: {
-          id: m.id,
-          played_at: String(m.played_at).slice(0, 10),
-          team_a_score: m.team_a_score,
-          team_b_score: m.team_b_score,
-          status:
-            m.status === "scheduled"
-              ? "scheduled"
-              : m.status === "loaded"
-                ? "loaded"
-                : m.status === "teams"
-                  ? "teams"
-                  : "played",
-          notes: m.notes,
-          created_at: m.created_at,
+          ...matchJsonFromRow(m),
           match_players,
           match_goals,
         },
@@ -316,6 +303,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         notes: string | null;
         team_a_score?: number;
         team_b_score?: number;
+        golden_goal_winner?: string | null;
         pool?: string[];
         teams?: { A: string[]; B: string[] };
         goals?: Record<string, number>;
@@ -325,46 +313,52 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const notes = b.notes ?? null;
       const created = new Date().toISOString();
 
+      const goldenGoalWinner =
+        b.golden_goal_winner === "A" || b.golden_goal_winner === "B" ? b.golden_goal_winner : null;
+
       if (b.mode === "scheduled" || b.mode === "loaded") {
         const st = b.mode === "loaded" ? "loaded" : "scheduled";
         await db
           .prepare(
-            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at)
-             VALUES (?, ?, 0, 0, ?, ?, ?)
+            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at, golden_goal_winner)
+             VALUES (?, ?, 0, 0, ?, ?, ?, NULL)
              ON CONFLICT(id) DO UPDATE SET
                played_at = excluded.played_at,
                team_a_score = 0,
                team_b_score = 0,
                status = excluded.status,
-               notes = excluded.notes`
+               notes = excluded.notes,
+               golden_goal_winner = NULL`
           )
           .bind(matchId, playedAt, st, notes, created)
           .run();
       } else if (b.mode === "teams") {
         await db
           .prepare(
-            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at)
-             VALUES (?, ?, 0, 0, 'teams', ?, ?)
+            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at, golden_goal_winner)
+             VALUES (?, ?, 0, 0, 'teams', ?, ?, NULL)
              ON CONFLICT(id) DO UPDATE SET
                played_at = excluded.played_at,
                team_a_score = 0,
                team_b_score = 0,
                status = 'teams',
-               notes = excluded.notes`
+               notes = excluded.notes,
+               golden_goal_winner = NULL`
           )
           .bind(matchId, playedAt, notes, created)
           .run();
       } else {
         await db
           .prepare(
-            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at)
-             VALUES (?, ?, ?, ?, 'played', ?, ?)
+            `INSERT INTO matches (id, played_at, team_a_score, team_b_score, status, notes, created_at, golden_goal_winner)
+             VALUES (?, ?, ?, ?, 'played', ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                played_at = excluded.played_at,
                team_a_score = excluded.team_a_score,
                team_b_score = excluded.team_b_score,
                status = 'played',
-               notes = excluded.notes`
+               notes = excluded.notes,
+               golden_goal_winner = excluded.golden_goal_winner`
           )
           .bind(
             matchId,
@@ -372,7 +366,8 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
             Number(b.team_a_score ?? 0),
             Number(b.team_b_score ?? 0),
             notes,
-            created
+            created,
+            goldenGoalWinner
           )
           .run();
       }

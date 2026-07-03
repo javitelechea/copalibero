@@ -24,6 +24,8 @@ export type MatchRow = {
   played_at: string;
   team_a_score: number;
   team_b_score: number;
+  /** Si el partido se definió por gol de oro con marcador empatado. */
+  golden_goal_winner: Team | null;
   status: MatchStatus;
   notes: string | null;
   created_at: string;

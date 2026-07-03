@@ -6,6 +6,7 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatches } from "@/lib/firestore-queries";
 import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
+import { matchScoreSummary } from "@/lib/match-outcome";
 import type { MatchRow } from "@/lib/types";
 import { ChevronRight } from "lucide-react";
 
@@ -68,7 +69,7 @@ export default function PartidosPage() {
                 <div className="flex items-center gap-2">
                   {showsMatchScore(m.status) ? (
                     <span className="rounded-xl bg-surface-2 px-3 py-1.5 font-mono text-lg font-bold tabular-nums">
-                      {m.team_a_score} — {m.team_b_score}
+                      {matchScoreSummary(m)}
                     </span>
                   ) : (
                     <span className="rounded-xl bg-accent/10 px-3 py-1.5 text-sm font-bold text-accent">
