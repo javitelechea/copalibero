@@ -33,10 +33,6 @@ export function teamMatchResult(
 
 export function teamResultLabel(match: MatchRow, team: Team): string {
   const r = teamMatchResult(match, team);
-  if (isGoldenGoalMatch(match)) {
-    if (r === "win") return "Victoria (G.O.)";
-    return "Derrota (G.O.)";
-  }
   if (r === "win") return "Victoria";
   if (r === "draw") return "Empate";
   return "Derrota";
@@ -67,7 +63,5 @@ export function matchScoreSummary(
   match: Pick<MatchRow, "team_a_score" | "team_b_score" | "golden_goal_winner">
 ): string {
   const { scoreA, scoreB } = displayMatchScores(match);
-  const base = `${scoreA} — ${scoreB}`;
-  if (isGoldenGoalMatch(match)) return `${base} · G.O.`;
-  return base;
+  return `${scoreA} — ${scoreB}`;
 }
