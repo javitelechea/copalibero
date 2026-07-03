@@ -14,6 +14,9 @@ export const FIRST_MATCH_ROSTER = [
   { display_name: "Federico Cortes", nickname: "Pety" },
   { display_name: "Rodrigo Campaño", nickname: "Campa" },
   { display_name: "Juan Dascolias", nickname: "Kimi" },
+  { display_name: "Javi", nickname: "Javi" },
+  { display_name: "Andy", nickname: "Andy" },
+  { display_name: "Hongo", nickname: "Hongo" },
 ] as const;
 
 export const FIRST_MATCH_ROSTER_NAMES = FIRST_MATCH_ROSTER.map((p) => p.display_name);
