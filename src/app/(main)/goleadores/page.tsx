@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { GoalBallIcons } from "@/components/GoalBallIcons";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
@@ -87,19 +86,23 @@ export default function GoleadoresPage() {
         <div className="w-full min-w-0 rounded-2xl border border-border bg-surface shadow-sm">
           <table className="w-full table-fixed border-collapse text-sm">
             <colgroup>
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "48%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "20%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "40%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "18%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-border bg-surface-2 text-xs font-bold uppercase tracking-wide text-muted">
                 <th className="px-2 py-2 text-center">#</th>
                 <th className="px-2 py-2 text-left">Apodo</th>
                 <th className="px-2 py-2 text-center" title="Partidos en los que anotó">
-                  PJG
+                  Partidos
                 </th>
                 <th className="px-2 py-2 text-center text-accent">Goles</th>
+                <th className="px-2 py-2 text-center" title="Goles por partido">
+                  G/P
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -121,11 +124,13 @@ export default function GoleadoresPage() {
                   <td className="px-2 py-2 text-center align-middle tabular-nums text-muted">
                     {row.scoringMatches}
                   </td>
-                  <td className="px-2 py-2 text-center align-middle">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="font-black tabular-nums text-accent">{row.goals}</span>
-                      <GoalBallIcons count={row.goals} />
-                    </div>
+                  <td className="px-2 py-2 text-center align-middle font-black tabular-nums text-accent">
+                    {row.goals}
+                  </td>
+                  <td className="px-2 py-2 text-center align-middle tabular-nums text-muted">
+                    {row.scoringMatches > 0
+                      ? (row.goals / row.scoringMatches).toFixed(1)
+                      : "—"}
                   </td>
                 </tr>
               ))}
