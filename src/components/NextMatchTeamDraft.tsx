@@ -10,6 +10,7 @@ import {
   type DraftRosterSlot,
 } from "@/lib/draft-teams";
 import type { StandingRow } from "@/lib/scoring";
+import { playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchPlayerRow, MatchRow, PlayerRow, Team } from "@/lib/types";
 import { Users } from "lucide-react";
@@ -158,13 +159,13 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
               key={p.id}
               className="flex items-center gap-2 rounded-xl border border-border/80 bg-surface-2/50 px-2 py-1.5"
             >
-              <PlayerAvatar name={p.display_name} url={p.avatar_url} size={32} />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+              <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={32} />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
               <button
                 type="button"
                 onClick={() => cycleTeam(p.id)}
                 className="shrink-0 rounded-lg border border-border px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-muted hover:border-accent/50 hover:text-fg"
-                aria-label={`Equipo para ${p.display_name}: ${slot}`}
+                aria-label={`Equipo para ${playerLabel(p)}: ${slot}`}
               >
                 {slotLabel(slot)}
               </button>
@@ -176,17 +177,17 @@ export function NextMatchTeamDraft({ nextMatch, lineups, players, standings, emb
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-xl border border-accent/25 bg-accent/5 px-2 py-2">
           <p className="font-bold text-accent">{teamDisplayName("A")} ({teamA.length})</p>
-          <p className="mt-1 line-clamp-4 text-muted">{teamA.map((p) => p.display_name).join(", ") || "—"}</p>
+          <p className="mt-1 line-clamp-4 text-muted">{teamA.map((p) => playerLabel(p)).join(", ") || "—"}</p>
         </div>
         <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-2 py-2">
           <p className="font-bold text-emerald-400">{teamDisplayName("B")} ({teamB.length})</p>
-          <p className="mt-1 line-clamp-4 text-muted">{teamB.map((p) => p.display_name).join(", ") || "—"}</p>
+          <p className="mt-1 line-clamp-4 text-muted">{teamB.map((p) => playerLabel(p)).join(", ") || "—"}</p>
         </div>
       </div>
 
       {unassigned.length > 0 ? (
         <p className="mt-2 text-xs text-muted">
-          Sin equipo: {unassigned.map((p) => p.display_name).join(", ")}. Tocá la letra para asignar.
+          Sin equipo: {unassigned.map((p) => playerLabel(p)).join(", ")}. Tocá la letra para asignar.
         </p>
       ) : null}
     </div>

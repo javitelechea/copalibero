@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { canUsePublicApp, isOfflineDemoData } from "@/lib/env";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { formatMatchDayShort } from "@/lib/next-match";
 import {
   fetchAsadoAttendees,
@@ -95,8 +96,9 @@ export default function AsadoDiaPage() {
         player: playerById.get(a.player_id) ?? null,
       }))
       .sort((a, b) => {
-        const na = a.player?.display_name ?? a.player_id;
-        const nb = b.player?.display_name ?? b.player_id;
+        if (a.player && b.player) return comparePlayers(a.player, b.player);
+        const na = a.player ? playerLabel(a.player) : a.player_id;
+        const nb = b.player ? playerLabel(b.player) : b.player_id;
         return na.localeCompare(nb);
       });
   }, [attendees, playerById]);
@@ -324,7 +326,7 @@ export default function AsadoDiaPage() {
                   .filter((p) => !attendees.some((a) => a.player_id === p.id))
                   .map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.display_name}
+                      {playerLabel(p)}
                     </option>
                   ))}
               </select>
@@ -404,12 +406,14 @@ export default function AsadoDiaPage() {
                     <td className="min-w-0 px-1 py-1 sm:py-1.5">
                       <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                         <PlayerAvatar
-                          name={r.player?.display_name ?? "?"}
+                          name={r.player ? playerLabel(r.player) : "?"}
                           url={r.player?.avatar_url ?? null}
                           size={22}
                           className="text-[10px] sm:text-sm"
                         />
-                        <span className="min-w-0 truncate font-medium">{r.player?.display_name ?? r.player_id}</span>
+                        <span className="min-w-0 truncate font-medium">
+                          {r.player ? playerLabel(r.player) : r.player_id}
+                        </span>
                       </div>
                     </td>
                     <td className="px-0 py-1 text-center tabular-nums sm:py-1.5">
@@ -514,7 +518,7 @@ export default function AsadoDiaPage() {
                           disabled={busy}
                           onClick={() => removeAttendee(r.player_id)}
                           className="rounded-lg p-1.5 text-muted hover:bg-red-500/10 hover:text-red-300 sm:p-2"
-                          aria-label={`Quitar ${r.player?.display_name ?? "jugador"}`}
+                          aria-label={`Quitar ${r.player ? playerLabel(r.player) : "jugador"}`}
                         >
                           <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>

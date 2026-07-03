@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { GoalBallIcons } from "@/components/GoalBallIcons";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { Team } from "@/lib/types";
 
 type PlayerMini = {
   id: string;
   display_name: string;
+  nickname?: string | null;
   avatar_url: string | null;
 };
 
@@ -18,7 +20,7 @@ type Props = {
 };
 
 function sortByName(players: PlayerMini[]) {
-  return [...players].sort((a, b) => a.display_name.localeCompare(b.display_name));
+  return [...players].sort(comparePlayers);
 }
 
 function TeamColumn({
@@ -56,7 +58,7 @@ function TeamColumn({
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate text-xs font-medium leading-snug sm:text-[0.8125rem]">
-                    {p.display_name}
+                    {playerLabel(p)}
                   </span>
                   <GoalBallIcons count={goals} />
                 </Link>

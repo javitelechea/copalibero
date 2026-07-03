@@ -11,6 +11,7 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchById } from "@/lib/firestore-queries";
 import { matchStatusLabel, showsMatchScore, showsMatchTeams } from "@/lib/match-status";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchWithDetails } from "@/lib/types";
 
@@ -77,7 +78,7 @@ export default function PartidoDetailPage() {
         list.push(r.players);
       }
     }
-    list.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    list.sort(comparePlayers);
     return list;
   })();
 
@@ -131,8 +132,8 @@ export default function PartidoDetailPage() {
                       href={`/jugadores/${p.id}`}
                       className="flex items-center gap-2 rounded-xl py-1.5 transition hover:bg-surface-2"
                     >
-                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
-                      <span className="min-w-0 flex-1 truncate font-medium">{p.display_name}</span>
+                      <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={40} />
+                      <span className="min-w-0 flex-1 truncate font-medium">{playerLabel(p)}</span>
                       <GoalBallIcons count={goalsByPlayer.get(p.id) ?? 0} size="sm" />
                     </Link>
                   </li>
@@ -168,16 +169,16 @@ export default function PartidoDetailPage() {
                     ) : (
                       <ul className="flex flex-col gap-1">
                         {[...players]
-                          .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                          .sort(comparePlayers)
                           .map((p) => (
                             <li key={p.id}>
                               <Link
                                 href={`/jugadores/${p.id}`}
                                 className="flex items-center gap-2 rounded-lg py-1.5 transition hover:bg-surface-2/80"
                               >
-                                <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
+                                <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={36} />
                                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                                  {p.display_name}
+                                  {playerLabel(p)}
                                 </span>
                                 <GoalBallIcons count={goalsByPlayer.get(p.id) ?? 0} />
                               </Link>
@@ -210,8 +211,8 @@ export default function PartidoDetailPage() {
                       href={`/jugadores/${p.id}`}
                       className="flex items-center gap-2 rounded-xl py-1.5 transition hover:bg-surface-2"
                     >
-                      <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
-                      <span className="min-w-0 flex-1 truncate font-medium">{p.display_name}</span>
+                      <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={40} />
+                      <span className="min-w-0 flex-1 truncate font-medium">{playerLabel(p)}</span>
                     </Link>
                   </li>
                 ))}

@@ -6,6 +6,7 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchPlayers } from "@/lib/firestore-queries";
+import { playerLabel } from "@/lib/player-label";
 import type { PlayerRow } from "@/lib/types";
 import { ChevronRight } from "lucide-react";
 
@@ -47,8 +48,8 @@ export default function JugadoresPage() {
               href={`/jugadores/${p.id}`}
               className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition active:scale-[0.99] hover:border-accent/40 hover:bg-surface-2"
             >
-              <PlayerAvatar name={p.display_name} url={p.avatar_url} size={52} />
-              <span className="min-w-0 flex-1 truncate text-lg font-semibold">{p.display_name}</span>
+              <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={52} />
+              <span className="min-w-0 flex-1 truncate text-lg font-semibold">{playerLabel(p)}</span>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
             </Link>
           </li>

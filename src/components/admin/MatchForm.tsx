@@ -12,6 +12,7 @@ import {
   rosterCountsFromDetails,
   type MatchRosterCounts,
 } from "@/lib/match-status";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchStatus, MatchWithDetails, PlayerRow, Team } from "@/lib/types";
 
@@ -68,6 +69,7 @@ function ghostPlayerFromMatch(
   return {
     id: r.players.id,
     display_name: r.players.display_name,
+    nickname: r.players.nickname ?? null,
     avatar_url: r.players.avatar_url,
     active: false,
     created_at: "",
@@ -91,7 +93,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     () =>
       [...mergedPlayers]
         .filter((p) => p.active)
-        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
+        .sort(comparePlayers),
     [mergedPlayers]
   );
 
@@ -154,22 +156,22 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const convocadosSorted = useMemo(() => {
     return [...convocados]
       .map((id) => byId.get(id))
-      .filter(Boolean)
-      .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
+      .filter((p): p is PlayerRow => p != null)
+      .sort(comparePlayers);
   }, [convocados, byId]);
 
   const teamASorted = useMemo(() => {
     return [...teamA]
       .map((id) => byId.get(id))
-      .filter(Boolean)
-      .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
+      .filter((p): p is PlayerRow => p != null)
+      .sort(comparePlayers);
   }, [teamA, byId]);
 
   const teamBSorted = useMemo(() => {
     return [...teamB]
       .map((id) => byId.get(id))
-      .filter(Boolean)
-      .sort((a, b) => a!.display_name.localeCompare(b!.display_name)) as PlayerRow[];
+      .filter((p): p is PlayerRow => p != null)
+      .sort(comparePlayers);
   }, [teamB, byId]);
 
   const sinEquipoSorted = useMemo(
@@ -694,8 +696,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                     : "border-border bg-surface hover:border-border"
                 }`}
               >
-                <PlayerAvatar name={p.display_name} url={p.avatar_url} size={40} />
-                <span className="font-medium">{p.display_name}</span>
+                <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={40} />
+                <span className="font-medium">{playerLabel(p)}</span>
                 <span
                   className={`ml-auto text-xs font-semibold tabular-nums ${
                     convocados.has(p.id) ? "text-accent" : "text-muted"
@@ -750,8 +752,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                            <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={36} />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
                             <button
                               type="button"
                               onClick={() => assignToTeam(p.id, "B")}
@@ -763,7 +765,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           <div className="mt-2 flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              aria-label={`Menos goles de ${p.display_name}`}
+                              aria-label={`Menos goles de ${playerLabel(p)}`}
                               disabled={n <= 0}
                               onClick={() => adjustGoal(p.id, -1)}
                               className="flex size-11 items-center justify-center rounded-xl border border-border bg-surface-2 text-xl font-bold text-fg transition hover:bg-surface disabled:opacity-30"
@@ -775,7 +777,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                             </span>
                             <button
                               type="button"
-                              aria-label={`Más goles de ${p.display_name}`}
+                              aria-label={`Más goles de ${playerLabel(p)}`}
                               onClick={() => adjustGoal(p.id, 1)}
                               className="flex size-11 items-center justify-center rounded-xl border border-accent/50 bg-accent/15 text-xl font-bold text-accent transition hover:bg-accent/25"
                             >
@@ -815,8 +817,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                            <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={36} />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
                             <button
                               type="button"
                               onClick={() => assignToTeam(p.id, "A")}
@@ -828,7 +830,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           <div className="mt-2 flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              aria-label={`Menos goles de ${p.display_name}`}
+                              aria-label={`Menos goles de ${playerLabel(p)}`}
                               disabled={n <= 0}
                               onClick={() => adjustGoal(p.id, -1)}
                               className="flex size-11 items-center justify-center rounded-xl border border-border bg-surface-2 text-xl font-bold text-fg transition hover:bg-surface disabled:opacity-30"
@@ -840,7 +842,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                             </span>
                             <button
                               type="button"
-                              aria-label={`Más goles de ${p.display_name}`}
+                              aria-label={`Más goles de ${playerLabel(p)}`}
                               onClick={() => adjustGoal(p.id, 1)}
                               className="flex size-11 items-center justify-center rounded-xl border border-emerald-500/50 bg-emerald-500/15 text-xl font-bold text-emerald-400 transition hover:bg-emerald-500/25"
                             >
@@ -881,8 +883,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                         key={`ne-${p.id}`}
                         className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2"
                       >
-                        <PlayerAvatar name={p.display_name} url={p.avatar_url} size={36} />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                        <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={36} />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
                         <button
                           type="button"
                           onClick={() => assignToTeam(p.id, "A")}
@@ -917,8 +919,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           key={`ta-${p.id}`}
                           className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2"
                         >
-                          <PlayerAvatar name={p.display_name} url={p.avatar_url} size={32} />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                          <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={32} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
                           <button
                             type="button"
                             onClick={() => removeFromTeam(p.id)}
@@ -945,8 +947,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                           key={`tb-${p.id}`}
                           className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2"
                         >
-                          <PlayerAvatar name={p.display_name} url={p.avatar_url} size={32} />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.display_name}</span>
+                          <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={32} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{playerLabel(p)}</span>
                           <button
                             type="button"
                             onClick={() => removeFromTeam(p.id)}

@@ -1,3 +1,4 @@
+import { comparePlayers } from "@/lib/player-label";
 import type { MatchPlayerRow, PlayerRow } from "@/lib/types";
 import type { StandingRow } from "@/lib/scoring";
 
@@ -41,7 +42,7 @@ export function sortPlayersForTeamDraft(players: PlayerRow[], standings: Standin
     const seedA = a.draft_seed != null && Number.isFinite(a.draft_seed) ? a.draft_seed : NO_SEED;
     const seedB = b.draft_seed != null && Number.isFinite(b.draft_seed) ? b.draft_seed : NO_SEED;
     if (seedA !== seedB) return seedA - seedB;
-    return a.display_name.localeCompare(b.display_name);
+    return comparePlayers(a, b);
   });
 }
 

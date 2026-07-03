@@ -9,6 +9,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { canUsePublicApp, isOfflineDemoData } from "@/lib/env";
 import { asadoPointsForRow } from "@/lib/asado-points";
 import { formatMatchDayShort } from "@/lib/next-match";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { fetchAllAsadoAttendees, fetchAsados, fetchPlayers, saveAsado } from "@/lib/firestore-queries";
 import type { AsadoAttendeeRow, AsadoRow, PlayerRow } from "@/lib/types";
 import { ChevronRight, Flame, Plus } from "lucide-react";
@@ -98,7 +99,7 @@ export default function AsadoPage() {
       if (b.meatTimes !== a.meatTimes) return b.meatTimes - a.meatTimes;
       if (b.panTimes !== a.panTimes) return b.panTimes - a.panTimes;
       if (b.postreTimes !== a.postreTimes) return b.postreTimes - a.postreTimes;
-      return a.player.display_name.localeCompare(b.player.display_name);
+      return comparePlayers(a.player, b.player);
     });
     return rows;
   }, [allAttendees, players]);
@@ -272,12 +273,12 @@ export default function AsadoPage() {
                   <td className="min-w-0 px-0.5 py-1 sm:px-1 sm:py-2">
                     <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                       <PlayerAvatar
-                        name={row.player.display_name}
+                        name={playerLabel(row.player)}
                         url={row.player.avatar_url}
                         size={22}
                         className="text-[10px] sm:text-sm"
                       />
-                      <span className="min-w-0 truncate font-medium">{row.player.display_name}</span>
+                      <span className="min-w-0 truncate font-medium">{playerLabel(row.player)}</span>
                     </div>
                   </td>
                   <td className="px-0 py-1 text-center font-black tabular-nums text-accent sm:py-2">

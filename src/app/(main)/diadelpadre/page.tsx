@@ -6,6 +6,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchLineups, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
+import { playerLabel } from "@/lib/player-label";
 import {
   computePairwiseDuels,
   groupDuelsByPadre,
@@ -22,9 +23,9 @@ function PadreCard({ group, rank }: { group: PadreGroup; rank: number }) {
         <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border bg-surface-2 px-4 py-4 sm:w-36 sm:border-b-0 sm:border-r md:w-40">
           <span className="text-[0.65rem] font-bold uppercase tracking-wider text-muted">Padre #{rank}</span>
           <Link href={`/jugadores/${group.padre.id}`} className="flex flex-col items-center gap-2 text-center">
-            <PlayerAvatar name={group.padre.display_name} url={group.padre.avatar_url} size={52} />
+            <PlayerAvatar name={playerLabel(group.padre)} url={group.padre.avatar_url} size={52} />
             <span className="line-clamp-3 text-sm font-bold leading-tight text-accent">
-              {group.padre.display_name}
+              {playerLabel(group.padre)}
             </span>
           </Link>
           <p className="text-center text-[0.65rem] font-medium text-muted">
@@ -52,12 +53,12 @@ function PadreCard({ group, rank }: { group: PadreGroup; rank: number }) {
                   <td className="px-2 py-2 sm:px-3">
                     <Link href={`/jugadores/${h.hijo.id}`} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                       <PlayerAvatar
-                        name={h.hijo.display_name}
+                        name={playerLabel(h.hijo)}
                         url={h.hijo.avatar_url}
                         size={24}
                         className="text-[9px] sm:text-xs"
                       />
-                      <span className="min-w-0 truncate font-medium text-fg">{h.hijo.display_name}</span>
+                      <span className="min-w-0 truncate font-medium text-fg">{playerLabel(h.hijo)}</span>
                     </Link>
                   </td>
                   <td className="px-1 py-2 text-center font-black tabular-nums text-accent">+{h.margin}</td>
@@ -182,7 +183,7 @@ export default function DiaDelPadrePage() {
               <Crown className="h-3 w-3" aria-hidden />
               Más hijos
             </p>
-            <p className="mt-1 text-sm font-semibold text-fg">{highlights.mostHijos.padre.display_name}</p>
+            <p className="mt-1 text-sm font-semibold text-fg">{playerLabel(highlights.mostHijos.padre)}</p>
             <p className="mt-0.5 text-xs text-muted">
               {highlights.mostHijos.hijos.length}{" "}
               {highlights.mostHijos.hijos.length === 1 ? "hijo" : "hijos"} con +{MIN_MARGIN}
@@ -191,7 +192,7 @@ export default function DiaDelPadrePage() {
           <div className="rounded-2xl border border-border bg-surface px-4 py-3">
             <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted">Mayor ventaja</p>
             <p className="mt-1 text-sm font-semibold text-fg">
-              {highlights.biggestMargin.padre.display_name} → {highlights.biggestMargin.hijo.display_name}
+              {playerLabel(highlights.biggestMargin.padre)} → {playerLabel(highlights.biggestMargin.hijo)}
             </p>
             <p className="mt-0.5 text-xs text-muted">
               +{highlights.biggestMargin.margin} ({highlights.biggestMargin.padreWins}–

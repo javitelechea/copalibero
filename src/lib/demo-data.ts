@@ -1,4 +1,4 @@
-import { FIRST_MATCH_ROSTER_NAMES } from "@/lib/first-match-roster";
+import { FIRST_MATCH_ROSTER } from "@/lib/first-match-roster";
 import { LIBERO_MATCH_NOTES } from "@/lib/weekly-match-defaults";
 import type {
   AsadoAttendeeRow,
@@ -13,9 +13,10 @@ import type {
 
 const t = "2026-01-01T12:00:00.000Z";
 
-export const DEMO_PLAYERS: PlayerRow[] = FIRST_MATCH_ROSTER_NAMES.map((display_name, i) => ({
+export const DEMO_PLAYERS: PlayerRow[] = FIRST_MATCH_ROSTER.map(({ display_name, nickname }, i) => ({
   id: `demo-p${i + 1}`,
   display_name,
+  nickname,
   avatar_url: null,
   active: true,
   created_at: t,
@@ -93,7 +94,10 @@ export function demoMatchById(matchId: string): MatchWithDetails | null {
   if (!match) return null;
   const rows = DEMO_LINEUPS.filter((l) => l.match_id === matchId);
   const mini = new Map(
-    DEMO_PLAYERS.map((p) => [p.id, { id: p.id, display_name: p.display_name, avatar_url: p.avatar_url }])
+    DEMO_PLAYERS.map((p) => [
+      p.id,
+      { id: p.id, display_name: p.display_name, nickname: p.nickname, avatar_url: p.avatar_url },
+    ])
   );
   const match_players = rows.map((r) => ({
     team: r.team,

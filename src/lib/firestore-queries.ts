@@ -18,6 +18,7 @@ import {
   DEMO_PLAYERS,
   demoMatchById,
 } from "@/lib/demo-data";
+import { comparePlayers } from "@/lib/player-label";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import {
@@ -86,6 +87,7 @@ function playerFromDoc(d: { id: string; data: () => Record<string, unknown> }): 
   return {
     id: d.id,
     display_name: String(x.display_name ?? ""),
+    nickname: x.nickname != null && String(x.nickname).trim() !== "" ? String(x.nickname).trim() : null,
     avatar_url: x.avatar_url != null ? String(x.avatar_url) : null,
     active: x.active !== false,
     created_at: isoFromField(x.created_at),
@@ -128,7 +130,7 @@ export async function fetchPlayers(activeOnly = true): Promise<PlayerRow[]> {
   if (isOfflineDemoData()) {
     let list = [...DEMO_PLAYERS];
     if (activeOnly) list = list.filter((p) => p.active);
-    return list.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    return list.sort(comparePlayers);
   }
   if (isD1Backend()) {
     const j = await cfJson<{ players: PlayerRow[] }>(`players?activeOnly=${activeOnly ? "1" : "0"}`);
@@ -297,7 +299,7 @@ export async function fetchMatchById(matchId: string): Promise<MatchWithDetails 
   });
 
   const playerIds = [...new Set(rows.map((r) => r.player_id))];
-  const mini = new Map<string, Pick<PlayerRow, "id" | "display_name" | "avatar_url">>();
+  const mini = new Map<string, Pick<PlayerRow, "id" | "display_name" | "nickname" | "avatar_url">>();
   await Promise.all(
     playerIds.map(async (pid) => {
       const ps = await getDoc(doc(db, C.players, pid));
@@ -306,6 +308,7 @@ export async function fetchMatchById(matchId: string): Promise<MatchWithDetails 
       mini.set(pid, {
         id: p.id,
         display_name: p.display_name,
+        nickname: p.nickname,
         avatar_url: p.avatar_url,
       });
     })
@@ -518,7 +521,7 @@ export async function d1CreatePlayer(display_name: string): Promise<PlayerRow> {
 
 export async function d1UpdatePlayer(
   id: string,
-  patch: Partial<Pick<PlayerRow, "display_name" | "active" | "draft_seed">>
+  patch: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "draft_seed">>
 ): Promise<void> {
   await cfJson(`players/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }

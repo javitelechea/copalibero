@@ -1,3 +1,4 @@
+import { comparePlayers } from "@/lib/player-label";
 import type {
   ConfirmationStatus,
   MatchGoalRow,
@@ -172,7 +173,7 @@ export function computeStandings(
     if (b.goals !== a.goals) return b.goals - a.goals;
     if (b.asado_points !== a.asado_points) return b.asado_points - a.asado_points;
     if (b.wins !== a.wins) return b.wins - a.wins;
-    return a.player.display_name.localeCompare(b.player.display_name);
+    return comparePlayers(a.player, b.player);
   });
 
   return list;

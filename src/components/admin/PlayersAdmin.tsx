@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatarDataUrl";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { d1CreatePlayer, d1UpdatePlayer, fetchPlayers } from "@/lib/firestore-queries";
 import type { PlayerRow } from "@/lib/types";
 import { Plus, Search } from "lucide-react";
@@ -34,14 +35,18 @@ export function PlayersAdmin() {
   }, []);
 
   const sorted = useMemo(
-    () => [...players].sort((a, b) => a.display_name.localeCompare(b.display_name)),
+    () => [...players].sort(comparePlayers),
     [players]
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return sorted;
-    return sorted.filter((p) => p.display_name.toLowerCase().includes(q));
+    return sorted.filter(
+      (p) =>
+        p.display_name.toLowerCase().includes(q) ||
+        (p.nickname?.toLowerCase().includes(q) ?? false)
+    );
   }, [sorted, query]);
 
   function openCreate() {
@@ -76,6 +81,7 @@ export function PlayersAdmin() {
       const created: PlayerRow = {
         id: ref.id,
         display_name: newName.trim(),
+        nickname: null,
         active: true,
         avatar_url: null,
         created_at: new Date().toISOString(),
@@ -95,8 +101,14 @@ export function PlayersAdmin() {
 
   async function updatePlayer(id: string, patch: Partial<PlayerRow>) {
     if (d1) {
-      const body: Partial<Pick<PlayerRow, "display_name" | "active" | "draft_seed">> = {};
+      const body: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "draft_seed">> = {};
       if (typeof patch.display_name === "string") body.display_name = patch.display_name;
+      if ("nickname" in patch) {
+        body.nickname =
+          patch.nickname == null || patch.nickname === undefined
+            ? null
+            : patch.nickname.trim() || null;
+      }
       if (typeof patch.active === "boolean") body.active = patch.active;
       if ("draft_seed" in patch) {
         if (patch.draft_seed === null || patch.draft_seed === undefined) {
@@ -215,17 +227,34 @@ export function PlayersAdmin() {
         {filtered.map((p) => (
           <li key={p.id} className="rounded-2xl border border-border bg-surface p-4">
             <div className="flex gap-3">
-              <PlayerAvatar name={p.display_name} url={p.avatar_url} size={56} />
+              <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={56} />
               <div className="min-w-0 flex-1 space-y-2">
-                <input
-                  defaultValue={p.display_name}
-                  key={p.display_name + p.id}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v && v !== p.display_name) void updatePlayer(p.id, { display_name: v });
-                  }}
-                  className="w-full rounded-lg border border-transparent bg-surface-2 px-3 py-2 font-semibold outline-none focus:border-accent/50"
-                />
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  <span>Nombre completo</span>
+                  <input
+                    defaultValue={p.display_name}
+                    key={`name-${p.id}-${p.display_name}`}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v && v !== p.display_name) void updatePlayer(p.id, { display_name: v });
+                    }}
+                    className="w-full rounded-lg border border-transparent bg-surface-2 px-3 py-2 font-semibold outline-none focus:border-accent/50"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  <span>Apodo (visible en la app)</span>
+                  <input
+                    defaultValue={p.nickname ?? ""}
+                    placeholder="Ej. Mosca"
+                    key={`nick-${p.id}-${p.nickname ?? ""}`}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      const cur = p.nickname?.trim() ?? "";
+                      if (v !== cur) void updatePlayer(p.id, { nickname: v || null });
+                    }}
+                    className="w-full rounded-lg border border-transparent bg-surface-2 px-3 py-2 font-semibold text-accent outline-none focus:border-accent/50"
+                  />
+                </label>
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
                   <input
                     type="checkbox"

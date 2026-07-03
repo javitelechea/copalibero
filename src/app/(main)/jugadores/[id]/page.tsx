@@ -17,6 +17,7 @@ import {
   fetchPlayerById,
   fetchPlayers,
 } from "@/lib/firestore-queries";
+import { playerLabel } from "@/lib/player-label";
 import { computeStandings } from "@/lib/scoring";
 import type { MatchRow, PlayerRow, Team } from "@/lib/types";
 
@@ -115,9 +116,12 @@ export default function JugadorPage() {
       </Link>
 
       <header className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-surface px-6 py-8 text-center">
-        <PlayerAvatar name={player.display_name} url={player.avatar_url} size={96} />
+        <PlayerAvatar name={playerLabel(player)} url={player.avatar_url} size={96} />
         <div>
-          <h1 className="text-2xl font-bold">{player.display_name}</h1>
+          <h1 className="text-2xl font-bold">{playerLabel(player)}</h1>
+          {player.nickname?.trim() && player.nickname.trim() !== player.display_name.trim() ? (
+            <p className="mt-1 text-sm text-muted">{player.display_name}</p>
+          ) : null}
           {mine && (
             <p className="mt-2 text-4xl font-black tabular-nums text-accent">{mine.points}</p>
           )}

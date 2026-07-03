@@ -7,6 +7,7 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
+import { playerLabel } from "@/lib/player-label";
 import { totalAsadoPointsByPlayer } from "@/lib/asado-points";
 import {
   fetchAllAsadoAttendees,
@@ -248,13 +249,13 @@ export default function HomePage() {
                         className="flex min-w-0 items-center gap-1 active:opacity-90 sm:gap-1.5"
                       >
                         <PlayerAvatar
-                          name={row.player.display_name}
+                          name={playerLabel(row.player)}
                           url={row.player.avatar_url}
                           size={22}
                           className="text-[10px] sm:text-sm"
                         />
                         <span className="min-w-0 truncate font-medium sm:font-semibold">
-                          {row.player.display_name}
+                          {playerLabel(row.player)}
                         </span>
                       </Link>
                     </td>

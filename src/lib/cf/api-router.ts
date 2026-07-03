@@ -70,11 +70,12 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const url = new URL(request.url);
       const activeOnly = url.searchParams.get("activeOnly") !== "0";
       const q = activeOnly
-        ? "SELECT id, display_name, active, created_at, draft_seed FROM players WHERE active = 1 ORDER BY display_name"
-        : "SELECT id, display_name, active, created_at, draft_seed FROM players ORDER BY display_name";
+        ? "SELECT id, display_name, nickname, active, created_at, draft_seed FROM players WHERE active = 1 ORDER BY display_name"
+        : "SELECT id, display_name, nickname, active, created_at, draft_seed FROM players ORDER BY display_name";
       const { results } = await db.prepare(q).all<{
         id: string;
         display_name: string;
+        nickname: string | null;
         active: number;
         created_at: string;
         draft_seed: number | null;
@@ -83,6 +84,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         players: (results ?? []).map((r) => ({
           id: r.id,
           display_name: r.display_name,
+          nickname: r.nickname?.trim() || null,
           avatar_url: null,
           active: r.active !== 0,
           created_at: r.created_at,
@@ -95,14 +97,15 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (playerGet && method === "GET") {
       const pid = playerGet[1];
       const row = await db
-        .prepare("SELECT id, display_name, active, created_at, draft_seed FROM players WHERE id = ?")
+        .prepare("SELECT id, display_name, nickname, active, created_at, draft_seed FROM players WHERE id = ?")
         .bind(pid)
-        .first<{ id: string; display_name: string; active: number; created_at: string; draft_seed: number | null }>();
+        .first<{ id: string; display_name: string; nickname: string | null; active: number; created_at: string; draft_seed: number | null }>();
       if (!row) return json({ error: "No encontrado" }, { status: 404 });
       return json({
         player: {
           id: row.id,
           display_name: row.display_name,
+          nickname: row.nickname?.trim() || null,
           avatar_url: null,
           active: row.active !== 0,
           created_at: row.created_at,
@@ -115,13 +118,28 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (path === "players" && method === "POST") {
       const gate = await requireAdmin(request);
       if (gate instanceof Response) return gate;
-      const body = (await request.json()) as { display_name?: string };
+      const body = (await request.json()) as { display_name?: string; nickname?: string | null };
       const name = String(body.display_name ?? "").trim();
       if (!name) return json({ error: "Nombre requerido" }, { status: 400 });
+      const nickname =
+        body.nickname == null || body.nickname === undefined
+          ? null
+          : String(body.nickname).trim() || null;
       const id = crypto.randomUUID();
       const created = new Date().toISOString();
-      await db.prepare("INSERT INTO players (id, display_name, active, created_at) VALUES (?, ?, 1, ?)").bind(id, name, created).run();
-      return json({ id, display_name: name, avatar_url: null, active: true, created_at: created, draft_seed: null });
+      await db
+        .prepare("INSERT INTO players (id, display_name, nickname, active, created_at) VALUES (?, ?, ?, 1, ?)")
+        .bind(id, name, nickname, created)
+        .run();
+      return json({
+        id,
+        display_name: name,
+        nickname,
+        avatar_url: null,
+        active: true,
+        created_at: created,
+        draft_seed: null,
+      });
     }
 
     const playerPatch = path.match(/^players\/([^/]+)$/);
@@ -135,6 +153,15 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       if (typeof body.display_name === "string") {
         sets.push("display_name = ?");
         vals.push(body.display_name.trim());
+      }
+      if ("nickname" in body) {
+        if (body.nickname === null || body.nickname === undefined) {
+          sets.push("nickname = NULL");
+        } else if (typeof body.nickname === "string") {
+          const nick = body.nickname.trim();
+          sets.push("nickname = ?");
+          vals.push(nick || null);
+        }
       }
       if (typeof body.active === "boolean") {
         sets.push("active = ?");
@@ -236,10 +263,19 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const line = await db.prepare("SELECT player_id, team FROM match_players WHERE match_id = ?").bind(matchId).all<{ player_id: string; team: string }>();
       const goals = await db.prepare("SELECT id, player_id, goals FROM match_goals WHERE match_id = ?").bind(matchId).all<{ id: string; player_id: string; goals: number }>();
       const pids = [...new Set((line.results ?? []).map((x) => x.player_id))];
-      const mini: Record<string, { id: string; display_name: string; avatar_url: null }> = {};
+      const mini: Record<string, { id: string; display_name: string; nickname: string | null; avatar_url: null }> = {};
       for (const pid of pids) {
-        const p = await db.prepare("SELECT id, display_name FROM players WHERE id = ?").bind(pid).first<{ id: string; display_name: string }>();
-        if (p) mini[pid] = { id: p.id, display_name: p.display_name, avatar_url: null };
+        const p = await db
+          .prepare("SELECT id, display_name, nickname FROM players WHERE id = ?")
+          .bind(pid)
+          .first<{ id: string; display_name: string; nickname: string | null }>();
+        if (p)
+          mini[pid] = {
+            id: p.id,
+            display_name: p.display_name,
+            nickname: p.nickname?.trim() || null,
+            avatar_url: null,
+          };
       }
       const match_players = (line.results ?? []).map((r) => ({
         team: r.team === "B" ? "B" : r.team === "pool" ? "pool" : "A",

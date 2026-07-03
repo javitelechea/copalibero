@@ -1,3 +1,4 @@
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import type { MatchPlayerRow, MatchRow, PlayerRow } from "@/lib/types";
 
 export type DuelRecord = {
@@ -96,8 +97,8 @@ export function computePairwiseDuels(
     const marginX = Math.abs(x.aWins - x.bWins);
     const marginY = Math.abs(y.aWins - y.bWins);
     if (marginY !== marginX) return marginY - marginX;
-    const nameA = `${x.playerA.display_name} vs ${x.playerB.display_name}`;
-    const nameB = `${y.playerA.display_name} vs ${y.playerB.display_name}`;
+    const nameA = `${playerLabel(x.playerA)} vs ${playerLabel(x.playerB)}`;
+    const nameB = `${playerLabel(y.playerA)} vs ${playerLabel(y.playerB)}`;
     return nameA.localeCompare(nameB);
   });
 
@@ -116,7 +117,7 @@ export function orderDuelByWinner(duel: DuelRecord): DuelRecord {
       meetings: duel.meetings,
     };
   }
-  if (duel.playerA.display_name.localeCompare(duel.playerB.display_name) <= 0) return duel;
+  if (comparePlayers(duel.playerA, duel.playerB) <= 0) return duel;
   return {
     playerA: duel.playerB,
     playerB: duel.playerA,
@@ -141,7 +142,7 @@ export function duelLabel(duel: DuelRecord): string {
   const ordered = orderDuelByWinner(duel);
   const winner = duelWinner(ordered);
   if (!winner) return "Empate histórico";
-  return `${ordered.playerA.display_name} ${ordered.aWins}–${ordered.bWins} ${ordered.playerB.display_name}`;
+  return `${playerLabel(ordered.playerA)} ${ordered.aWins}–${ordered.bWins} ${playerLabel(ordered.playerB)}`;
 }
 
 export type HijoDuel = {
@@ -192,7 +193,7 @@ export function groupDuelsByPadre(duels: DuelRecord[], minMargin = 3): PadreGrou
   for (const group of list) {
     group.hijos.sort((a, b) => {
       if (b.margin !== a.margin) return b.margin - a.margin;
-      return a.hijo.display_name.localeCompare(b.hijo.display_name);
+      return comparePlayers(a.hijo, b.hijo);
     });
   }
 
@@ -201,7 +202,7 @@ export function groupDuelsByPadre(duels: DuelRecord[], minMargin = 3): PadreGrou
     const maxA = a.hijos[0]?.margin ?? 0;
     const maxB = b.hijos[0]?.margin ?? 0;
     if (maxB !== maxA) return maxB - maxA;
-    return a.padre.display_name.localeCompare(b.padre.display_name);
+    return comparePlayers(a.padre, b.padre);
   });
 
   return list;

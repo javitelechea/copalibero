@@ -1,6 +1,6 @@
 /**
  * Carga en Firestore los jugadores de la plantilla (src/lib/first-match-roster.ts).
- * No borra nada: si ya existe un doc con el mismo display_name, lo saltea.
+ * No borra nada: si ya existe un doc con el mismo display_name, actualiza el apodo si falta.
  *
  * Requisitos:
  * 1. En Firebase Console → Ajustes del proyecto → Cuentas de servicio → "Generar nueva clave privada".
@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { FIRST_MATCH_ROSTER_NAMES } from "../src/lib/first-match-roster";
+import { FIRST_MATCH_ROSTER } from "../src/lib/first-match-roster";
 
 /** Archivo local (gitignored) para no exportar variables cada vez. */
 const LOCAL_SERVICE_ACCOUNT = join(process.cwd(), "firebase-service-account.local.json");
@@ -62,25 +62,38 @@ async function main() {
   const db = getFirestore();
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
 
-  for (const display_name of FIRST_MATCH_ROSTER_NAMES) {
+  for (const { display_name, nickname } of FIRST_MATCH_ROSTER) {
     const snap = await db.collection("players").where("display_name", "==", display_name).limit(1).get();
     if (!snap.empty) {
-      skipped += 1;
-      console.log(`[skip] ya existe: ${display_name}`);
+      const doc = snap.docs[0]!;
+      const current = doc.data().nickname;
+      const cur = current == null ? "" : String(current).trim();
+      if (cur !== nickname) {
+        await doc.ref.update({ nickname });
+        updated += 1;
+        console.log(`[upd]  apodo: ${display_name} → ${nickname}`);
+      } else {
+        skipped += 1;
+        console.log(`[skip] ya existe: ${display_name}`);
+      }
       continue;
     }
     await db.collection("players").add({
       display_name,
+      nickname,
       active: true,
       created_at: FieldValue.serverTimestamp(),
     });
     created += 1;
-    console.log(`[ok]   creado: ${display_name}`);
+    console.log(`[ok]   creado: ${display_name} (${nickname})`);
   }
 
-  console.log(`\nListo. Creados: ${created}, ya existían: ${skipped}, total plantilla: ${FIRST_MATCH_ROSTER_NAMES.length}`);
+  console.log(
+    `\nListo. Creados: ${created}, apodos actualizados: ${updated}, sin cambios: ${skipped}, total plantilla: ${FIRST_MATCH_ROSTER.length}`
+  );
 }
 
 main().catch((e) => {

@@ -10,6 +10,8 @@ export type MatchStatus = "scheduled" | "loaded" | "teams" | "played";
 export type PlayerRow = {
   id: string;
   display_name: string;
+  /** Apodo visible en la app (tabla, partidos, etc.). */
+  nickname: string | null;
   avatar_url: string | null;
   active: boolean;
   created_at: string;
@@ -50,7 +52,7 @@ export type MatchConfirmationRow = {
 export type MatchWithDetails = MatchRow & {
   match_players: {
     team: MatchRosterRole;
-    players: Pick<PlayerRow, "id" | "display_name" | "avatar_url"> | null;
+    players: Pick<PlayerRow, "id" | "display_name" | "nickname" | "avatar_url"> | null;
   }[];
   match_goals: { id: string; player_id: string; goals: number }[];
 };
@@ -88,5 +90,5 @@ export type AsadoAttendeeRow = {
 };
 
 export type AsadoAttendeeWithPlayer = AsadoAttendeeRow & {
-  player: Pick<PlayerRow, "id" | "display_name" | "avatar_url"> | null;
+  player: Pick<PlayerRow, "id" | "display_name" | "nickname" | "avatar_url"> | null;
 };
