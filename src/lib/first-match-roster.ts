@@ -18,6 +18,15 @@ export const FIRST_MATCH_ROSTER = [
 
 export const FIRST_MATCH_ROSTER_NAMES = FIRST_MATCH_ROSTER.map((p) => p.display_name);
 
+const NICKNAME_BY_DISPLAY_NAME = new Map(
+  FIRST_MATCH_ROSTER.map((p) => [p.display_name.trim().toLowerCase(), p.nickname])
+);
+
+/** Apodo por defecto según plantilla (si en la DB falta `nickname`). */
+export function defaultNicknameForDisplayName(displayName: string): string | null {
+  return NICKNAME_BY_DISPLAY_NAME.get(displayName.trim().toLowerCase()) ?? null;
+}
+
 export function firstMatchRosterPasteText(): string {
   return FIRST_MATCH_ROSTER_NAMES.join("\n");
 }

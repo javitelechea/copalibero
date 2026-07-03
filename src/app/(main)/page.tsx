@@ -202,8 +202,8 @@ export default function HomePage() {
                 <tr className="border-b border-border bg-surface-2 text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
                   <th className="px-0 py-1.5 text-center sm:py-2">#</th>
                   <th className="min-w-0 px-0.5 py-1.5 text-left sm:px-1 sm:py-2">
-                    <span className="sm:hidden">Jug</span>
-                    <span className="hidden sm:inline">Jugador</span>
+                    <span className="sm:hidden">Apo</span>
+                    <span className="hidden sm:inline">Apodo</span>
                   </th>
                   <th className="px-0 py-1.5 text-center sm:py-2" title="Partidos jugados">
                     PJ

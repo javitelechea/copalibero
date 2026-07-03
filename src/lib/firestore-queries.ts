@@ -19,6 +19,7 @@ import {
   demoMatchById,
 } from "@/lib/demo-data";
 import { comparePlayers } from "@/lib/player-label";
+import { defaultNicknameForDisplayName } from "@/lib/first-match-roster";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import {
@@ -87,7 +88,10 @@ function playerFromDoc(d: { id: string; data: () => Record<string, unknown> }): 
   return {
     id: d.id,
     display_name: String(x.display_name ?? ""),
-    nickname: x.nickname != null && String(x.nickname).trim() !== "" ? String(x.nickname).trim() : null,
+    nickname:
+      x.nickname != null && String(x.nickname).trim() !== ""
+        ? String(x.nickname).trim()
+        : defaultNicknameForDisplayName(String(x.display_name ?? "")),
     avatar_url: x.avatar_url != null ? String(x.avatar_url) : null,
     active: x.active !== false,
     created_at: isoFromField(x.created_at),

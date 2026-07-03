@@ -9,6 +9,8 @@ import {
   verifySession,
 } from "@/lib/cf/session-cookie";
 
+import { defaultNicknameForDisplayName } from "@/lib/first-match-roster";
+
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
@@ -84,7 +86,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         players: (results ?? []).map((r) => ({
           id: r.id,
           display_name: r.display_name,
-          nickname: r.nickname?.trim() || null,
+          nickname: r.nickname?.trim() || defaultNicknameForDisplayName(r.display_name),
           avatar_url: null,
           active: r.active !== 0,
           created_at: r.created_at,
@@ -105,7 +107,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         player: {
           id: row.id,
           display_name: row.display_name,
-          nickname: row.nickname?.trim() || null,
+          nickname: row.nickname?.trim() || defaultNicknameForDisplayName(row.display_name),
           avatar_url: null,
           active: row.active !== 0,
           created_at: row.created_at,
@@ -273,7 +275,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           mini[pid] = {
             id: p.id,
             display_name: p.display_name,
-            nickname: p.nickname?.trim() || null,
+            nickname: p.nickname?.trim() || defaultNicknameForDisplayName(p.display_name),
             avatar_url: null,
           };
       }
