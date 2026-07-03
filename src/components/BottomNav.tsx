@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flame, Home, Shield, Trophy, Users } from "lucide-react";
+import { Crosshair, Home, Shield, Trophy, Users } from "lucide-react";
 
 const items = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/partidos", label: "Partidos", icon: Trophy },
   { href: "/jugadores", label: "Jugadores", icon: Users },
-  { href: "/asado", label: "Asado", icon: Flame },
+  { href: "/goleadores", label: "Goleadores", icon: Crosshair },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
 

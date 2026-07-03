@@ -1,8 +1,6 @@
 import { FIRST_MATCH_ROSTER } from "@/lib/first-match-roster";
 import { LIBERO_MATCH_NOTES } from "@/lib/weekly-match-defaults";
 import type {
-  AsadoAttendeeRow,
-  AsadoRow,
   MatchConfirmationRow,
   MatchGoalRow,
   MatchPlayerRow,
@@ -43,49 +41,6 @@ export const DEMO_LINEUPS: MatchPlayerRow[] = [
 export const DEMO_GOALS: MatchGoalRow[] = [];
 
 export const DEMO_CONFIRMATIONS: MatchConfirmationRow[] = [];
-
-export const DEMO_ASADOS: AsadoRow[] = [
-  {
-    id: "demo-asado1",
-    held_at: "2026-05-10",
-    notes: "Después del partido",
-    total_cost: 120_000,
-    created_at: t,
-  },
-];
-
-export const DEMO_ASADO_ATTENDEES: AsadoAttendeeRow[] = [
-  {
-    id: "demo-ap1",
-    asado_id: "demo-asado1",
-    player_id: "demo-p1",
-    portions: 2,
-    stayed: true,
-    bought_meat: true,
-    panificado: false,
-    postre: true,
-  },
-  {
-    id: "demo-ap2",
-    asado_id: "demo-asado1",
-    player_id: "demo-p2",
-    portions: 1,
-    stayed: true,
-    bought_meat: false,
-    panificado: true,
-    postre: false,
-  },
-  {
-    id: "demo-ap3",
-    asado_id: "demo-asado1",
-    player_id: "demo-p3",
-    portions: 1,
-    stayed: false,
-    bought_meat: true,
-    panificado: false,
-    postre: false,
-  },
-];
 
 export function demoMatchById(matchId: string): MatchWithDetails | null {
   const match = DEMO_MATCHES.find((m) => m.id === matchId);

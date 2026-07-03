@@ -8,9 +8,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
 import { playerLabel } from "@/lib/player-label";
-import { totalAsadoPointsByPlayer } from "@/lib/asado-points";
 import {
-  fetchAllAsadoAttendees,
   fetchConfirmations,
   fetchMatchGoals,
   fetchMatchLineups,
@@ -36,17 +34,15 @@ export default function HomePage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, lineups, goals, confirmations, asadoAttendees] = await Promise.all([
+        const [players, matches, lineups, goals, confirmations] = await Promise.all([
           fetchPlayers(true),
           fetchMatches(),
           fetchMatchLineups(),
           fetchMatchGoals(),
           fetchConfirmations(),
-          fetchAllAsadoAttendees(),
         ]);
         if (cancelled) return;
-        const asadoMap = totalAsadoPointsByPlayer(asadoAttendees);
-        setStandings(computeStandings(players, matches, lineups, goals, confirmations, asadoMap));
+        setStandings(computeStandings(players, matches, lineups, goals, confirmations));
         setRecent(matches.filter((m) => m.status === "played").slice(0, 3));
         setLastPlayed(pickLastPlayedMatch(matches));
         setNextMatch(pickNextScheduledMatch(matches));
@@ -188,15 +184,14 @@ export default function HomePage() {
             <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.55vw,0.75rem)] leading-tight sm:text-xs">
               <colgroup>
                 <col style={{ width: "5.5%" }} />
-                <col style={{ width: "34%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
-                <col style={{ width: "7.5625%" }} />
+                <col style={{ width: "38%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
               </colgroup>
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
@@ -222,12 +217,6 @@ export default function HomePage() {
                   </th>
                   <th className="px-0 py-1.5 text-center sm:py-2" title="Bonus">
                     B
-                  </th>
-                  <th
-                    className="px-0 py-1.5 text-center sm:py-2"
-                    title="Puntos de asado (no suman al total; desempate si empatan puntos y goles)"
-                  >
-                    As
                   </th>
                   <th className="px-0 py-1.5 text-center text-accent sm:py-2" title="Puntos torneo">
                     Pts
@@ -267,12 +256,6 @@ export default function HomePage() {
                     <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.losses}</td>
                     <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.goals}</td>
                     <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.bonus}</td>
-                    <td
-                      className="px-0 py-1 text-center align-middle tabular-nums text-muted sm:py-1.5"
-                      title="Puntos asado (desempate)"
-                    >
-                      {row.asado_points}
-                    </td>
                     <td className="px-0 py-1 text-center align-middle font-black tabular-nums text-accent sm:py-1.5 sm:text-sm">
                       {row.points}
                     </td>
