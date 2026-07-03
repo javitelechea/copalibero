@@ -13,6 +13,7 @@ import {
   type MatchRosterCounts,
 } from "@/lib/match-status";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
+import { MATCH_PASTE_EXAMPLE, parseMatchPaste } from "@/lib/match-paste-parser";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchStatus, MatchWithDetails, PlayerRow, Team } from "@/lib/types";
 
@@ -144,6 +145,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteMsg, setPasteMsg] = useState("");
 
   const canPickMode = !initialMatch || initialMatch.status !== "played";
   const submitAsScheduled = canPickMode && matchMode === "scheduled";
@@ -276,6 +279,44 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       else next[playerId] = n;
       return next;
     });
+  }
+
+  function applyPaste() {
+    setPasteMsg("");
+    setError("");
+
+    const result = parseMatchPaste(pasteText, mergedPlayers);
+    if (result.errors.length > 0) {
+      setPasteMsg(result.errors.join("\n"));
+      return;
+    }
+
+    const conv = new Set<string>();
+    const nextA = new Set<string>();
+    const nextB = new Set<string>();
+    const nextGoals: Record<string, number> = {};
+
+    for (const row of result.teamA) {
+      conv.add(row.playerId);
+      nextA.add(row.playerId);
+      if (row.goals > 0) nextGoals[row.playerId] = row.goals;
+    }
+    for (const row of result.teamB) {
+      conv.add(row.playerId);
+      nextB.add(row.playerId);
+      if (row.goals > 0) nextGoals[row.playerId] = row.goals;
+    }
+
+    setConvocados(conv);
+    setTeamA(nextA);
+    setTeamB(nextB);
+    setGoals(nextGoals);
+    setAScore(result.scoreA);
+    setBScore(result.scoreB);
+    setMatchMode("played");
+    setPasteMsg(
+      `Listo: ${result.teamA.length + result.teamB.length} jugadores, ${teamDisplayName("A")} ${result.scoreA}–${result.scoreB} ${teamDisplayName("B")}.`
+    );
   }
 
   function validateTeamsForSave(): string | null {
@@ -648,6 +689,52 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           </p>
         )}
       </div>
+
+      <section className="rounded-2xl border border-accent/25 bg-accent/5 p-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-accent">Atajo · Pegar resultado</h2>
+        <p className="mt-1 text-xs text-muted">
+          Pegá una línea por equipo con apodos y goles. Usa jugadores que ya existen en la base (por apodo).
+        </p>
+        <textarea
+          value={pasteText}
+          onChange={(e) => {
+            setPasteText(e.target.value);
+            setPasteMsg("");
+          }}
+          rows={4}
+          placeholder={MATCH_PASTE_EXAMPLE}
+          className="mt-3 w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 font-mono text-xs outline-none ring-accent/20 focus:ring-2"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => applyPaste()}
+            disabled={!pasteText.trim()}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-canvas disabled:opacity-50"
+          >
+            Cargar equipos y goles
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPasteText(MATCH_PASTE_EXAMPLE);
+              setPasteMsg("");
+            }}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted hover:text-fg"
+          >
+            Ver ejemplo
+          </button>
+        </div>
+        {pasteMsg ? (
+          <p
+            className={`mt-3 whitespace-pre-wrap text-sm ${
+              pasteMsg.startsWith("Listo:") ? "text-accent" : "text-red-400"
+            }`}
+          >
+            {pasteMsg}
+          </p>
+        ) : null}
+      </section>
 
       <div
         className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-surface/80"
