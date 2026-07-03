@@ -9,6 +9,7 @@ import { fileToAvatarDataUrl } from "@/lib/avatarDataUrl";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { d1CreatePlayer, d1UpdatePlayer, fetchPlayers } from "@/lib/firestore-queries";
+import { isGuestPlayer } from "@/lib/player-guest";
 import type { PlayerRow } from "@/lib/types";
 import { Plus, Search } from "lucide-react";
 
@@ -17,6 +18,8 @@ export function PlayersAdmin() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newNickname, setNewNickname] = useState("");
+  const [newGuest, setNewGuest] = useState(false);
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,6 +55,8 @@ export function PlayersAdmin() {
   function openCreate() {
     setShowCreate(true);
     setMsg("");
+    setNewGuest(false);
+    setNewNickname("");
     const q = query.trim();
     if (q) setNewName(q);
     queueMicrotask(() => newNameInputRef.current?.focus());
@@ -59,14 +64,21 @@ export function PlayersAdmin() {
 
   async function createPlayer(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim()) return;
+    const name = newName.trim();
+    const nick = newNickname.trim();
+    if (!name && !nick) return;
+    if (newGuest && !nick && !name) return;
+    const display_name = name || nick;
+    const nickname = nick || null;
     setBusy(true);
     setMsg("");
     try {
       if (d1) {
-        const created = await d1CreatePlayer(newName.trim());
+        const created = await d1CreatePlayer(display_name, { nickname, guest: newGuest });
         setPlayers((p) => [...p, created]);
         setNewName("");
+        setNewNickname("");
+        setNewGuest(false);
         setShowCreate(false);
         setQuery("");
         router.refresh();
@@ -74,21 +86,26 @@ export function PlayersAdmin() {
       }
       const db = getFirestoreDb();
       const ref = await addDoc(collection(db, "players"), {
-        display_name: newName.trim(),
+        display_name,
+        nickname,
+        guest: newGuest,
         active: true,
         created_at: new Date().toISOString(),
       });
       const created: PlayerRow = {
         id: ref.id,
-        display_name: newName.trim(),
-        nickname: null,
+        display_name,
+        nickname,
         active: true,
+        guest: newGuest,
         avatar_url: null,
         created_at: new Date().toISOString(),
         draft_seed: null,
       };
       setPlayers((p) => [...p, created]);
       setNewName("");
+      setNewNickname("");
+      setNewGuest(false);
       setShowCreate(false);
       setQuery("");
       router.refresh();
@@ -101,7 +118,7 @@ export function PlayersAdmin() {
 
   async function updatePlayer(id: string, patch: Partial<PlayerRow>) {
     if (d1) {
-      const body: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "draft_seed">> = {};
+      const body: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "guest" | "draft_seed">> = {};
       if (typeof patch.display_name === "string") body.display_name = patch.display_name;
       if ("nickname" in patch) {
         body.nickname =
@@ -110,6 +127,7 @@ export function PlayersAdmin() {
             : patch.nickname.trim() || null;
       }
       if (typeof patch.active === "boolean") body.active = patch.active;
+      if (typeof patch.guest === "boolean") body.guest = patch.guest;
       if ("draft_seed" in patch) {
         if (patch.draft_seed === null || patch.draft_seed === undefined) {
           body.draft_seed = null;
@@ -190,24 +208,43 @@ export function PlayersAdmin() {
             onClick={() => {
               setShowCreate(false);
               setNewName("");
+              setNewNickname("");
+              setNewGuest(false);
             }}
             className="text-xs font-medium text-muted hover:text-fg"
           >
             Cerrar
           </button>
         </div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-          <input
-            ref={newNameInputRef}
-            placeholder="Nombre completo"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="min-h-[48px] flex-1 rounded-xl border border-border bg-surface-2 px-4 py-3 outline-none ring-accent/20 focus:ring-2"
-          />
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              ref={newNameInputRef}
+              placeholder="Nombre completo"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="min-h-[48px] flex-1 rounded-xl border border-border bg-surface-2 px-4 py-3 outline-none ring-accent/20 focus:ring-2"
+            />
+            <input
+              placeholder="Apodo (visible en partidos)"
+              value={newNickname}
+              onChange={(e) => setNewNickname(e.target.value)}
+              className="min-h-[48px] flex-1 rounded-xl border border-border bg-surface-2 px-4 py-3 outline-none ring-accent/20 focus:ring-2"
+            />
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={newGuest}
+              onChange={(e) => setNewGuest(e.target.checked)}
+              className="size-4 rounded border-border accent-amber-500"
+            />
+            Invitado (no suma en la tabla general ni en goleadores)
+          </label>
           <button
             type="submit"
-            disabled={busy || offlineDemo}
-            className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-accent px-5 font-bold text-canvas disabled:opacity-50"
+            disabled={busy || offlineDemo || (!newName.trim() && !newNickname.trim())}
+            className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-accent px-5 font-bold text-canvas disabled:opacity-50 sm:self-start"
           >
             <Plus className="h-5 w-5" />
             Agregar
@@ -225,10 +262,20 @@ export function PlayersAdmin() {
 
       <ul className="flex flex-col gap-3">
         {filtered.map((p) => (
-          <li key={p.id} className="rounded-2xl border border-border bg-surface p-4">
+          <li
+            key={p.id}
+            className={`rounded-2xl border bg-surface p-4 ${
+              isGuestPlayer(p) ? "border-amber-500/30" : "border-border"
+            }`}
+          >
             <div className="flex gap-3">
               <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={56} />
               <div className="min-w-0 flex-1 space-y-2">
+                {isGuestPlayer(p) ? (
+                  <span className="inline-block rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                    Invitado
+                  </span>
+                ) : null}
                 <label className="flex flex-col gap-1 text-xs text-muted">
                   <span>Nombre completo</span>
                   <input
@@ -254,6 +301,15 @@ export function PlayersAdmin() {
                     }}
                     className="w-full rounded-lg border border-transparent bg-surface-2 px-3 py-2 font-semibold text-accent outline-none focus:border-accent/50"
                   />
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                  <input
+                    type="checkbox"
+                    checked={p.guest}
+                    onChange={(e) => void updatePlayer(p.id, { guest: e.target.checked })}
+                    className="size-4 rounded border-border accent-amber-500"
+                  />
+                  Invitado (no suma en la tabla)
                 </label>
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
                   <input

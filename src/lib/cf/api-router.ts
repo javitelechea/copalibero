@@ -107,13 +107,14 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       const url = new URL(request.url);
       const activeOnly = url.searchParams.get("activeOnly") !== "0";
       const q = activeOnly
-        ? "SELECT id, display_name, nickname, active, created_at, draft_seed FROM players WHERE active = 1 ORDER BY display_name"
-        : "SELECT id, display_name, nickname, active, created_at, draft_seed FROM players ORDER BY display_name";
+        ? "SELECT id, display_name, nickname, active, guest, created_at, draft_seed FROM players WHERE active = 1 ORDER BY display_name"
+        : "SELECT id, display_name, nickname, active, guest, created_at, draft_seed FROM players ORDER BY display_name";
       const { results } = await db.prepare(q).all<{
         id: string;
         display_name: string;
         nickname: string | null;
         active: number;
+        guest: number;
         created_at: string;
         draft_seed: number | null;
       }>();
@@ -124,6 +125,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           nickname: r.nickname?.trim() || defaultNicknameForDisplayName(r.display_name),
           avatar_url: null,
           active: r.active !== 0,
+          guest: r.guest !== 0,
           created_at: r.created_at,
           draft_seed: r.draft_seed == null || Number.isNaN(Number(r.draft_seed)) ? null : Number(r.draft_seed),
         })),
@@ -134,9 +136,9 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (playerGet && method === "GET") {
       const pid = playerGet[1];
       const row = await db
-        .prepare("SELECT id, display_name, nickname, active, created_at, draft_seed FROM players WHERE id = ?")
+        .prepare("SELECT id, display_name, nickname, active, guest, created_at, draft_seed FROM players WHERE id = ?")
         .bind(pid)
-        .first<{ id: string; display_name: string; nickname: string | null; active: number; created_at: string; draft_seed: number | null }>();
+        .first<{ id: string; display_name: string; nickname: string | null; active: number; guest: number; created_at: string; draft_seed: number | null }>();
       if (!row) return json({ error: "No encontrado" }, { status: 404 });
       return json({
         player: {
@@ -145,6 +147,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
           nickname: row.nickname?.trim() || defaultNicknameForDisplayName(row.display_name),
           avatar_url: null,
           active: row.active !== 0,
+          guest: row.guest !== 0,
           created_at: row.created_at,
           draft_seed:
             row.draft_seed == null || Number.isNaN(Number(row.draft_seed)) ? null : Number(row.draft_seed),
@@ -155,18 +158,25 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
     if (path === "players" && method === "POST") {
       const gate = await requireAdmin(request);
       if (gate instanceof Response) return gate;
-      const body = (await request.json()) as { display_name?: string; nickname?: string | null };
+      const body = (await request.json()) as {
+        display_name?: string;
+        nickname?: string | null;
+        guest?: boolean;
+      };
       const name = String(body.display_name ?? "").trim();
       if (!name) return json({ error: "Nombre requerido" }, { status: 400 });
       const nickname =
         body.nickname == null || body.nickname === undefined
           ? null
           : String(body.nickname).trim() || null;
+      const guest = body.guest === true ? 1 : 0;
       const id = crypto.randomUUID();
       const created = new Date().toISOString();
       await db
-        .prepare("INSERT INTO players (id, display_name, nickname, active, created_at) VALUES (?, ?, ?, 1, ?)")
-        .bind(id, name, nickname, created)
+        .prepare(
+          "INSERT INTO players (id, display_name, nickname, active, guest, created_at) VALUES (?, ?, ?, 1, ?, ?)"
+        )
+        .bind(id, name, nickname, guest, created)
         .run();
       return json({
         id,
@@ -174,6 +184,7 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
         nickname,
         avatar_url: null,
         active: true,
+        guest: guest !== 0,
         created_at: created,
         draft_seed: null,
       });
@@ -203,6 +214,10 @@ export async function handleCfApi(request: Request, slug: string[], method: stri
       if (typeof body.active === "boolean") {
         sets.push("active = ?");
         vals.push(body.active ? 1 : 0);
+      }
+      if (typeof body.guest === "boolean") {
+        sets.push("guest = ?");
+        vals.push(body.guest ? 1 : 0);
       }
       if ("draft_seed" in body) {
         if (body.draft_seed === null || body.draft_seed === undefined) {

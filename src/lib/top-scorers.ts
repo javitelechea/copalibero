@@ -1,4 +1,5 @@
 import { comparePlayers } from "@/lib/player-label";
+import { isGuestPlayer } from "@/lib/player-guest";
 import type { MatchGoalRow, MatchRow, PlayerRow } from "@/lib/types";
 
 export type TopScorerRow = {
@@ -31,7 +32,7 @@ export function computeTopScorers(
 
   for (const [playerId, { goals: total, matchIds }] of byPlayer) {
     const player = playerMap.get(playerId);
-    if (!player) continue;
+    if (!player || isGuestPlayer(player)) continue;
     list.push({ player, goals: total, scoringMatches: matchIds.size });
   }
 

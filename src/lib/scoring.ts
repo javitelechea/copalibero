@@ -1,5 +1,6 @@
 import { comparePlayers } from "@/lib/player-label";
 import { isGoldenGoalMatch, teamMatchResult } from "@/lib/match-outcome";
+import { isTablePlayer } from "@/lib/player-guest";
 import type {
   ConfirmationStatus,
   MatchGoalRow,
@@ -74,7 +75,7 @@ export function computeStandings(
   const byPlayer = new Map<string, StandingAccum>();
 
   for (const p of players) {
-    if (!p.active) continue;
+    if (!isTablePlayer(p)) continue;
     byPlayer.set(p.id, {
       playerId: p.id,
       points: 0,
@@ -138,7 +139,7 @@ export function computeStandings(
 
   const list: StandingRow[] = [];
   for (const p of players) {
-    if (!p.active) continue;
+    if (!isTablePlayer(p)) continue;
     const s = byPlayer.get(p.id);
     if (!s) continue;
     list.push({

@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -90,6 +91,7 @@ function playerFromDoc(d: { id: string; data: () => Record<string, unknown> }): 
         : defaultNicknameForDisplayName(String(x.display_name ?? "")),
     avatar_url: x.avatar_url != null ? String(x.avatar_url) : null,
     active: x.active !== false,
+    guest: x.guest === true,
     created_at: isoFromField(x.created_at),
     ...(draft_seed !== undefined ? { draft_seed } : {}),
   };
@@ -377,13 +379,52 @@ export async function saveMatchD1(body: SaveMatchD1Body): Promise<{ id: string }
   return cfJson("matches/save", { method: "POST", body: JSON.stringify(body) });
 }
 
-export async function d1CreatePlayer(display_name: string): Promise<PlayerRow> {
-  return cfJson("players", { method: "POST", body: JSON.stringify({ display_name }) });
+export async function d1CreatePlayer(
+  display_name: string,
+  opts?: { nickname?: string | null; guest?: boolean }
+): Promise<PlayerRow> {
+  return cfJson("players", {
+    method: "POST",
+    body: JSON.stringify({
+      display_name,
+      nickname: opts?.nickname ?? null,
+      guest: opts?.guest ?? false,
+    }),
+  });
+}
+
+export async function createGuestPlayer(label: string): Promise<PlayerRow> {
+  const name = label.trim();
+  if (!name) throw new Error("Nombre de invitado vacío");
+  if (isOfflineDemoData()) {
+    throw new Error("Modo demo: conectá Firebase o D1 para crear invitados.");
+  }
+  if (isD1Backend()) {
+    return d1CreatePlayer(name, { nickname: name, guest: true });
+  }
+  const db = getFirestoreDb();
+  const created_at = new Date().toISOString();
+  const ref = await addDoc(collection(db, C.players), {
+    display_name: name,
+    nickname: name,
+    guest: true,
+    active: true,
+    created_at,
+  });
+  return {
+    id: ref.id,
+    display_name: name,
+    nickname: name,
+    avatar_url: null,
+    active: true,
+    guest: true,
+    created_at,
+  };
 }
 
 export async function d1UpdatePlayer(
   id: string,
-  patch: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "draft_seed">>
+  patch: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "guest" | "draft_seed">>
 ): Promise<void> {
   await cfJson(`players/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
 }

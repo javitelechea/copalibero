@@ -10,6 +10,7 @@ import { GoalBallIcons } from "@/components/GoalBallIcons";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchById } from "@/lib/firestore-queries";
+import { displayMatchScores } from "@/lib/match-outcome";
 import { matchStatusLabel, showsMatchScore, showsMatchTeams } from "@/lib/match-status";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
@@ -88,6 +89,7 @@ export default function PartidoDetailPage() {
     month: "long",
     year: "numeric",
   });
+  const { scoreA: displayA, scoreB: displayB } = displayMatchScores(match);
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,8 +108,8 @@ export default function PartidoDetailPage() {
       {isFinalized ? (
         <>
           <FinishedMatchBoard
-            scoreA={match.team_a_score}
-            scoreB={match.team_b_score}
+            scoreA={displayA}
+            scoreB={displayB}
             goldenGoalWinner={match.golden_goal_winner}
             teamA={teamAPlayers}
             teamB={teamBPlayers}

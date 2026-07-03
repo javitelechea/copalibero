@@ -17,6 +17,7 @@ export const DEMO_PLAYERS: PlayerRow[] = FIRST_MATCH_ROSTER.map(({ display_name,
   nickname,
   avatar_url: null,
   active: true,
+  guest: false,
   created_at: t,
 }));
 

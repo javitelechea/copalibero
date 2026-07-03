@@ -7,11 +7,19 @@ export type ParsedPastePlayer = {
   label: string;
 };
 
+export type PendingGuestPlayer = {
+  name: string;
+  goals: number;
+  team: Team;
+};
+
 export type ParseMatchPasteResult = {
   teamA: ParsedPastePlayer[];
   teamB: ParsedPastePlayer[];
   scoreA: number;
   scoreB: number;
+  /** Invitados a crear (marcados con invitado en el texto). */
+  pendingGuests: PendingGuestPlayer[];
   errors: string[];
 };
 
@@ -32,18 +40,19 @@ function norm(s: string): string {
     .toLowerCase();
 }
 
-function parsePlayerChunk(raw: string): { name: string; goals: number } {
+function parsePlayerChunk(raw: string): { name: string; goals: number; isGuest: boolean } {
   let s = raw.trim();
-  if (!s) return { name: "", goals: 0 };
+  if (!s) return { name: "", goals: 0, isGuest: false };
 
+  const isGuest = /\(\s*invitado\s*\*?\s*\)/i.test(s) || /\binvitado\s*\*?\b/i.test(s);
   s = s.replace(/\(\s*invitado\s*\*?\s*\)/gi, "").replace(/\binvitado\s*\*?\b/gi, "").trim();
 
   const endGoals = s.match(/^(.+?)\s+(\d+)\s*$/);
   if (endGoals) {
-    return { name: endGoals[1].trim(), goals: Number(endGoals[2]) };
+    return { name: endGoals[1].trim(), goals: Number(endGoals[2]), isGuest };
   }
 
-  return { name: s, goals: 0 };
+  return { name: s, goals: 0, isGuest };
 }
 
 function resolvePlayer(name: string, players: PlayerRow[]): PlayerRow | null {
@@ -77,6 +86,7 @@ function teamFromLabel(label: string): Team | null {
  */
 export function parseMatchPaste(text: string, players: PlayerRow[]): ParseMatchPasteResult {
   const errors: string[] = [];
+  const pendingGuests: PendingGuestPlayer[] = [];
   const teamA: ParsedPastePlayer[] = [];
   const teamB: ParsedPastePlayer[] = [];
   let scoreA = 0;
@@ -109,11 +119,16 @@ export function parseMatchPaste(text: string, players: PlayerRow[]): ParseMatchP
     let sumGoals = 0;
 
     for (const chunk of chunks) {
-      const { name, goals } = parsePlayerChunk(chunk);
+      const { name, goals, isGuest } = parsePlayerChunk(chunk);
       if (!name) continue;
 
       const player = resolvePlayer(name, players);
       if (!player) {
+        if (isGuest) {
+          pendingGuests.push({ name, goals, team });
+          sumGoals += goals;
+          continue;
+        }
         errors.push(`No encontré jugador con apodo «${name}»`);
         continue;
       }
@@ -148,7 +163,7 @@ export function parseMatchPaste(text: string, players: PlayerRow[]): ParseMatchP
     errors.unshift("Pegá una línea por equipo, por ejemplo: «Blanco (10): …» y «Negro (9): …»");
   }
 
-  return { teamA, teamB, scoreA, scoreB, errors };
+  return { teamA, teamB, scoreA, scoreB, pendingGuests, errors };
 }
 
 export const MATCH_PASTE_EXAMPLE = `Negro (9): Javi 2, Gasti 1(invitado*), Plasty 1, Andy 5, Marian, Agus Gasti (invitado*), Topo

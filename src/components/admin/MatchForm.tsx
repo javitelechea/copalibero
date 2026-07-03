@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
 import { isD1Backend } from "@/lib/env";
-import { deleteDocsWhere, saveMatchD1 } from "@/lib/firestore-queries";
+import { deleteDocsWhere, createGuestPlayer, saveMatchD1 } from "@/lib/firestore-queries";
+import { isGuestPlayer } from "@/lib/player-guest";
 import {
   resolveMatchStatus,
   rosterCountsFromDetails,
@@ -14,11 +15,24 @@ import {
 } from "@/lib/match-status";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { MATCH_PASTE_EXAMPLE, parseMatchPaste } from "@/lib/match-paste-parser";
+import { displayMatchScores } from "@/lib/match-outcome";
 import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchStatus, MatchWithDetails, PlayerRow, Team } from "@/lib/types";
 
 type MatchFormMode = "scheduled" | "loaded" | "teams" | "played";
 type ResultMode = "regular" | "draw" | "golden_goal";
+
+function initialScoresForForm(initialMatch: MatchWithDetails | null | undefined): {
+  a: number;
+  b: number;
+} {
+  if (!initialMatch) return { a: 0, b: 0 };
+  if (initialMatch.golden_goal_winner) {
+    const { scoreA, scoreB } = displayMatchScores(initialMatch);
+    return { a: scoreA, b: scoreB };
+  }
+  return { a: initialMatch.team_a_score, b: initialMatch.team_b_score };
+}
 
 function initialResultMode(initialMatch: MatchWithDetails | null | undefined): ResultMode {
   if (initialMatch?.golden_goal_winner) return "golden_goal";
@@ -85,6 +99,7 @@ function ghostPlayerFromMatch(
     nickname: r.players.nickname ?? null,
     avatar_url: r.players.avatar_url,
     active: false,
+    guest: false,
     created_at: "",
   };
 }
@@ -92,21 +107,28 @@ function ghostPlayerFromMatch(
 export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const router = useRouter();
   const editId = initialMatch?.id;
+  const [extraPlayers, setExtraPlayers] = useState<PlayerRow[]>([]);
 
   const mergedPlayers = useMemo(() => {
     const m = new Map(players.map((p) => [p.id, p]));
+    for (const p of extraPlayers) m.set(p.id, p);
     initialMatch?.match_players.forEach((r) => {
       const g = ghostPlayerFromMatch(r);
       if (g && !m.has(g.id)) m.set(g.id, g);
     });
     return [...m.values()];
-  }, [players, initialMatch]);
+  }, [players, initialMatch, extraPlayers]);
 
   const rosterActive = useMemo(
     () =>
       [...mergedPlayers]
         .filter((p) => p.active)
-        .sort(comparePlayers),
+        .sort((a, b) => {
+          const ga = isGuestPlayer(a) ? 1 : 0;
+          const gb = isGuestPlayer(b) ? 1 : 0;
+          if (ga !== gb) return ga - gb;
+          return comparePlayers(a, b);
+        }),
     [mergedPlayers]
   );
 
@@ -121,8 +143,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const [matchMode, setMatchMode] = useState<MatchFormMode>(() =>
     initialMatchMode(initialMatch, createDefaults)
   );
-  const [aScore, setAScore] = useState(initialMatch?.team_a_score ?? 0);
-  const [bScore, setBScore] = useState(initialMatch?.team_b_score ?? 0);
+  const initialScores = initialScoresForForm(initialMatch);
+  const [aScore, setAScore] = useState(initialScores.a);
+  const [bScore, setBScore] = useState(initialScores.b);
   const [resultMode, setResultMode] = useState<ResultMode>(() => initialResultMode(initialMatch));
   const [goldenGoalWinner, setGoldenGoalWinner] = useState<Team | null>(
     initialMatch?.golden_goal_winner ?? null
@@ -297,15 +320,39 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     });
   }
 
-  function applyPaste() {
+  async function applyPaste() {
     setPasteMsg("");
     setError("");
 
-    const result = parseMatchPaste(pasteText, mergedPlayers);
-    if (result.errors.length > 0) {
-      setPasteMsg(result.errors.join("\n"));
+    let roster = mergedPlayers;
+    let first = parseMatchPaste(pasteText, roster);
+    if (first.errors.length > 0) {
+      setPasteMsg(first.errors.join("\n"));
       return;
     }
+
+    const created: PlayerRow[] = [];
+    try {
+      for (const g of first.pendingGuests) {
+        const p = await createGuestPlayer(g.name);
+        created.push(p);
+      }
+    } catch (err) {
+      setPasteMsg(err instanceof Error ? err.message : "Error al crear invitados");
+      return;
+    }
+
+    if (created.length > 0) {
+      setExtraPlayers((prev) => [...prev, ...created]);
+      roster = [...roster, ...created];
+      first = parseMatchPaste(pasteText, roster);
+      if (first.errors.length > 0) {
+        setPasteMsg(first.errors.join("\n"));
+        return;
+      }
+    }
+
+    const result = first;
 
     const conv = new Set<string>();
     const nextA = new Set<string>();
@@ -330,8 +377,10 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     setAScore(result.scoreA);
     setBScore(result.scoreB);
     setMatchMode("played");
+    const guestNote =
+      created.length > 0 ? ` · ${created.length} invitado${created.length > 1 ? "s" : ""} creado${created.length > 1 ? "s" : ""}` : "";
     setPasteMsg(
-      `Listo: ${result.teamA.length + result.teamB.length} jugadores, ${teamDisplayName("A")} ${result.scoreA}–${result.scoreB} ${teamDisplayName("B")}.`
+      `Listo: ${result.teamA.length + result.teamB.length} jugadores, ${teamDisplayName("A")} ${result.scoreA}–${result.scoreB} ${teamDisplayName("B")}.${guestNote}`
     );
   }
 
@@ -364,17 +413,37 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     return null;
   }
 
+  function pickGoldenGoalWinner(team: Team) {
+    setGoldenGoalWinner(team);
+    if (aScore === bScore) {
+      if (team === "A") setAScore(aScore + 1);
+      else setBScore(bScore + 1);
+    }
+  }
+
   function validatePlayedResult(): string | null {
     if (resultMode === "draw" && aScore !== bScore) {
       return "En empate los goles de ambos equipos tienen que ser iguales.";
     }
     if (resultMode === "golden_goal") {
-      if (aScore !== bScore) {
-        return "En gol de oro el marcador debe estar empatado.";
-      }
       if (!goldenGoalWinner) {
         return `Elegí qué equipo ganó por gol de oro (${teamDisplayName("A")} o ${teamDisplayName("B")}).`;
       }
+      const winScore = goldenGoalWinner === "A" ? aScore : bScore;
+      const loseScore = goldenGoalWinner === "A" ? bScore : aScore;
+      if (winScore !== loseScore + 1) {
+        return `En gol de oro el ganador debe tener un gol más en el marcador (ej. 10–9). ${teamDisplayName(goldenGoalWinner)} necesita ${loseScore + 1} goles.`;
+      }
+    }
+    return null;
+  }
+
+  function validateGoalsForSave(): string | null {
+    if (goalsSumA !== aScore) {
+      return `Los goles de ${teamDisplayName("A")} suman ${goalsSumA} pero el marcador dice ${aScore}. Revisá los goles por jugador.`;
+    }
+    if (goalsSumB !== bScore) {
+      return `Los goles de ${teamDisplayName("B")} suman ${goalsSumB} pero el marcador dice ${bScore}. Revisá los goles por jugador.`;
     }
     return null;
   }
@@ -545,6 +614,11 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       setError(resultErr);
       return;
     }
+    const goalsErr = validateGoalsForSave();
+    if (goalsErr) {
+      setError(goalsErr);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -707,6 +781,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-muted">
                 Goles {teamDisplayName("A")}
+                {resultMode === "golden_goal" ? (
+                  <span className="ml-1 font-normal normal-case text-muted"> (marcador final)</span>
+                ) : null}
               </span>
               <input
                 type="number"
@@ -720,6 +797,9 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-muted">
                 Goles {teamDisplayName("B")}
+                {resultMode === "golden_goal" ? (
+                  <span className="ml-1 font-normal normal-case text-muted"> (marcador final)</span>
+                ) : null}
               </span>
               <input
                 type="number"
@@ -769,13 +849,21 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   className="size-4 accent-accent"
                 />
                 <span className="text-sm font-medium">Gol de oro</span>
-                <span className="text-xs text-muted">(empate + ganador; el perdedor suma +1 bonus)</span>
+                <span className="text-xs text-muted">
+                  (marcador final con +1 al ganador, ej. 10–9; cargá ese gol en sus jugadores)
+                </span>
               </label>
               {resultMode === "golden_goal" ? (
-                <div className="mt-1 flex flex-wrap gap-2 px-2">
+                <div className="mt-1 flex flex-col gap-2 px-2">
+                  <p className="text-xs text-muted">
+                    Si empató 9–9, elegí el ganador y el marcador pasa a 10–9. Los goles por jugador deben sumar{" "}
+                    <strong className="text-fg">10</strong> para el ganador y <strong className="text-fg">9</strong>{" "}
+                    para el otro.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setGoldenGoalWinner("A")}
+                    onClick={() => pickGoldenGoalWinner("A")}
                     className={`min-h-[40px] rounded-lg border px-4 text-sm font-bold ${
                       goldenGoalWinner === "A"
                         ? "border-accent bg-accent/20 text-accent"
@@ -786,7 +874,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setGoldenGoalWinner("B")}
+                    onClick={() => pickGoldenGoalWinner("B")}
                     className={`min-h-[40px] rounded-lg border px-4 text-sm font-bold ${
                       goldenGoalWinner === "B"
                         ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
@@ -795,6 +883,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   >
                     G.O. {teamDisplayName("B")}
                   </button>
+                  </div>
                 </div>
               ) : null}
             </fieldset>
@@ -809,7 +898,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       <section className="rounded-2xl border border-accent/25 bg-accent/5 p-4">
         <h2 className="text-sm font-bold uppercase tracking-wide text-accent">Atajo · Pegar resultado</h2>
         <p className="mt-1 text-xs text-muted">
-          Pegá una línea por equipo con apodos y goles. Usa jugadores que ya existen en la base (por apodo).
+          Pegá una línea por equipo con apodos y goles. Marcá invitados con <code className="text-fg">(invitado*)</code>{" "}
+          para crearlos automáticamente si no existen.
         </p>
         <textarea
           value={pasteText}
@@ -901,6 +991,11 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               >
                 <PlayerAvatar name={playerLabel(p)} url={p.avatar_url} size={40} />
                 <span className="font-medium">{playerLabel(p)}</span>
+                {isGuestPlayer(p) ? (
+                  <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                    Invitado
+                  </span>
+                ) : null}
                 <span
                   className={`ml-auto text-xs font-semibold tabular-nums ${
                     convocados.has(p.id) ? "text-accent" : "text-muted"
@@ -923,7 +1018,8 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wide text-muted">3 · Goles por equipo</h2>
                 <p className="mt-1 text-xs text-muted">
-                  {teamDisplayName("A")} y {teamDisplayName("B")}. Tocá − o +; deberían sumar el marcador de arriba.
+                  {teamDisplayName("A")} y {teamDisplayName("B")}. Tocá − o +; deben sumar el marcador de arriba
+                  {resultMode === "golden_goal" ? " (incluido el gol de oro del ganador)" : ""}.
                 </p>
               </div>
 

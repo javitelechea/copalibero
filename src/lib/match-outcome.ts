@@ -47,10 +47,27 @@ export function matchOutcomeTeam(match: MatchRow): Team | "draw" {
   return w ?? "draw";
 }
 
+/**
+ * Marcador visible: si hubo gol de oro con empate en el tiempo regular,
+ * suma 1 al ganador (p. ej. 9–9 guardado → muestra 10–9).
+ */
+export function displayMatchScores(
+  match: Pick<MatchRow, "team_a_score" | "team_b_score" | "golden_goal_winner">
+): { scoreA: number; scoreB: number } {
+  let scoreA = match.team_a_score;
+  let scoreB = match.team_b_score;
+  if (isGoldenGoalMatch(match) && scoreA === scoreB) {
+    if (match.golden_goal_winner === "A") scoreA += 1;
+    else scoreB += 1;
+  }
+  return { scoreA, scoreB };
+}
+
 export function matchScoreSummary(
   match: Pick<MatchRow, "team_a_score" | "team_b_score" | "golden_goal_winner">
 ): string {
-  const base = `${match.team_a_score} — ${match.team_b_score}`;
+  const { scoreA, scoreB } = displayMatchScores(match);
+  const base = `${scoreA} — ${scoreB}`;
   if (isGoldenGoalMatch(match)) return `${base} · G.O.`;
   return base;
 }

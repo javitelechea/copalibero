@@ -14,6 +14,8 @@ export type PlayerRow = {
   nickname: string | null;
   avatar_url: string | null;
   active: boolean;
+  /** Invitado puntual: puede jugar partidos pero no aparece en la tabla general. */
+  guest: boolean;
   created_at: string;
   /** Opcional: menor = prioridad en borrador si empata con la tabla (p. ej. nunca jugó). */
   draft_seed?: number | null;

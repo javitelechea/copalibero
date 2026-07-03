@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchPlayers } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
+import { isTablePlayer } from "@/lib/player-guest";
 import type { PlayerRow } from "@/lib/types";
 import { ChevronRight } from "lucide-react";
 
@@ -17,7 +18,7 @@ export default function JugadoresPage() {
   useEffect(() => {
     if (!canUsePublicApp()) return;
     void fetchPlayers(true)
-      .then(setPlayers)
+      .then((list) => setPlayers(list.filter(isTablePlayer)))
       .finally(() => setLoading(false));
   }, []);
 
