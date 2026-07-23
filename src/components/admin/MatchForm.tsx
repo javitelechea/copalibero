@@ -1050,35 +1050,20 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       </div>
 
       <section className="rounded-2xl border border-border bg-surface-2 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
-            <p className="mt-1 text-xs text-muted">
-              Solo jugadores activos. Tocá para sumar o sacar de la convocatoria de este partido.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs font-medium tabular-nums text-muted">
-              {convocados.size} / {rosterActive.length} convocados
-            </span>
-            {!showCreatePlayer ? (
-              <button
-                type="button"
-                disabled={offlineDemo}
-                onClick={openCreatePlayer}
-                className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-accent px-3 text-sm font-bold text-canvas disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo
-              </button>
-            ) : null}
-          </div>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
+          <span className="text-xs font-medium tabular-nums text-muted">
+            {convocados.size} / {rosterActive.length} convocados
+          </span>
         </div>
+        <p className="mt-1 text-xs text-muted">
+          Solo jugadores activos. Tocá para sumar o sacar de la convocatoria de este partido.
+        </p>
 
         {showCreatePlayer ? (
           <form
             onSubmit={(e) => void createPlayerInline(e)}
-            className="mt-3 rounded-xl border border-border bg-surface p-3"
+            className="mt-3 rounded-xl border border-accent/40 bg-surface p-3"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Nuevo jugador</h3>
@@ -1132,7 +1117,17 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
               ) : null}
             </div>
           </form>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            disabled={offlineDemo}
+            onClick={openCreatePlayer}
+            className="mt-3 flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/50 bg-accent/10 px-3 py-2.5 text-sm font-bold text-accent transition hover:bg-accent/15 disabled:opacity-50"
+          >
+            <Plus className="h-5 w-5" />
+            Crear jugador nuevo
+          </button>
+        )}
 
         <ul className="mt-3 flex flex-col gap-2">
           {rosterActive.map((p) => (
