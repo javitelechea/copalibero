@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firestore/lite";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getFirestoreDb } from "@/lib/firebase/client";
-import { isD1Backend } from "@/lib/env";
-import { deleteDocsWhere, createGuestPlayer, saveMatchD1 } from "@/lib/firestore-queries";
+import { isD1Backend, isOfflineDemoData } from "@/lib/env";
+import {
+  deleteDocsWhere,
+  createGuestPlayer,
+  d1CreatePlayer,
+  saveMatchD1,
+} from "@/lib/firestore-queries";
 import { isGuestPlayer } from "@/lib/player-guest";
 import {
   resolveMatchStatus,
@@ -107,7 +113,15 @@ function ghostPlayerFromMatch(
 export function MatchForm({ players, initialMatch, createDefaults }: Props) {
   const router = useRouter();
   const editId = initialMatch?.id;
+  const offlineDemo = isOfflineDemoData();
   const [extraPlayers, setExtraPlayers] = useState<PlayerRow[]>([]);
+  const [showCreatePlayer, setShowCreatePlayer] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [newPlayerNickname, setNewPlayerNickname] = useState("");
+  const [newPlayerGuest, setNewPlayerGuest] = useState(false);
+  const [creatingPlayer, setCreatingPlayer] = useState(false);
+  const [createPlayerMsg, setCreatePlayerMsg] = useState("");
+  const newPlayerNameRef = useRef<HTMLInputElement>(null);
 
   const mergedPlayers = useMemo(() => {
     const m = new Map(players.map((p) => [p.id, p]));
@@ -278,6 +292,74 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       }
       return n;
     });
+  }
+
+  function openCreatePlayer() {
+    setShowCreatePlayer(true);
+    setCreatePlayerMsg("");
+    setNewPlayerGuest(false);
+    setNewPlayerNickname("");
+    queueMicrotask(() => newPlayerNameRef.current?.focus());
+  }
+
+  function closeCreatePlayer() {
+    setShowCreatePlayer(false);
+    setNewPlayerName("");
+    setNewPlayerNickname("");
+    setNewPlayerGuest(false);
+    setCreatePlayerMsg("");
+  }
+
+  async function createPlayerInline(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newPlayerName.trim();
+    const nick = newPlayerNickname.trim();
+    if (!name && !nick) return;
+    if (offlineDemo) {
+      setCreatePlayerMsg("Modo demo: conectá Firebase o D1 para crear jugadores.");
+      return;
+    }
+    const display_name = name || nick;
+    const nickname = nick || null;
+    setCreatingPlayer(true);
+    setCreatePlayerMsg("");
+    try {
+      let created: PlayerRow;
+      if (isD1Backend()) {
+        created = await d1CreatePlayer(display_name, {
+          nickname,
+          guest: newPlayerGuest,
+        });
+      } else {
+        const db = getFirestoreDb();
+        const created_at = new Date().toISOString();
+        const ref = await addDoc(collection(db, "players"), {
+          display_name,
+          nickname,
+          guest: newPlayerGuest,
+          active: true,
+          created_at,
+        });
+        created = {
+          id: ref.id,
+          display_name,
+          nickname,
+          active: true,
+          guest: newPlayerGuest,
+          avatar_url: null,
+          created_at,
+          draft_seed: null,
+        };
+      }
+      setExtraPlayers((prev) => [...prev, created]);
+      setConvocados((prev) => new Set(prev).add(created.id));
+      closeCreatePlayer();
+      router.refresh();
+    } catch (err) {
+      setCreatePlayerMsg(err instanceof Error ? err.message : "Error al crear jugador");
+    } finally {
+      setCreatingPlayer(false);
+    }
   }
 
   function assignToTeam(playerId: string, team: "A" | "B") {
@@ -968,15 +1050,90 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       </div>
 
       <section className="rounded-2xl border border-border bg-surface-2 p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
-          <span className="text-xs font-medium tabular-nums text-muted">
-            {convocados.size} / {rosterActive.length} convocados
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">1 · Plantel disponible</h2>
+            <p className="mt-1 text-xs text-muted">
+              Solo jugadores activos. Tocá para sumar o sacar de la convocatoria de este partido.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs font-medium tabular-nums text-muted">
+              {convocados.size} / {rosterActive.length} convocados
+            </span>
+            {!showCreatePlayer ? (
+              <button
+                type="button"
+                disabled={offlineDemo}
+                onClick={openCreatePlayer}
+                className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-accent px-3 text-sm font-bold text-canvas disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo
+              </button>
+            ) : null}
+          </div>
         </div>
-        <p className="mt-1 text-xs text-muted">
-          Solo jugadores activos. Tocá para sumar o sacar de la convocatoria de este partido.
-        </p>
+
+        {showCreatePlayer ? (
+          <form
+            onSubmit={(e) => void createPlayerInline(e)}
+            className="mt-3 rounded-xl border border-border bg-surface p-3"
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Nuevo jugador</h3>
+              <button
+                type="button"
+                onClick={closeCreatePlayer}
+                className="text-xs font-medium text-muted hover:text-fg"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  ref={newPlayerNameRef}
+                  placeholder="Nombre completo"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  className="min-h-[44px] flex-1 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm outline-none ring-accent/20 focus:ring-2"
+                />
+                <input
+                  placeholder="Apodo (visible en partidos)"
+                  value={newPlayerNickname}
+                  onChange={(e) => setNewPlayerNickname(e.target.value)}
+                  className="min-h-[44px] flex-1 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm outline-none ring-accent/20 focus:ring-2"
+                />
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={newPlayerGuest}
+                  onChange={(e) => setNewPlayerGuest(e.target.checked)}
+                  className="size-4 rounded border-border accent-amber-500"
+                />
+                Invitado (no suma en la tabla general ni en goleadores)
+              </label>
+              <button
+                type="submit"
+                disabled={
+                  creatingPlayer ||
+                  offlineDemo ||
+                  (!newPlayerName.trim() && !newPlayerNickname.trim())
+                }
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-canvas disabled:opacity-50 sm:self-start"
+              >
+                <Plus className="h-4 w-4" />
+                {creatingPlayer ? "Creando…" : "Crear y convocar"}
+              </button>
+              {createPlayerMsg ? (
+                <p className="text-sm text-red-400">{createPlayerMsg}</p>
+              ) : null}
+            </div>
+          </form>
+        ) : null}
+
         <ul className="mt-3 flex flex-col gap-2">
           {rosterActive.map((p) => (
             <li key={`disp-${p.id}`}>
