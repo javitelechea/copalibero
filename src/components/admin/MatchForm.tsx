@@ -310,8 +310,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
     setCreatePlayerMsg("");
   }
 
-  async function createPlayerInline(e: React.FormEvent) {
-    e.preventDefault();
+  async function createPlayerInline() {
     const name = newPlayerName.trim();
     const nick = newPlayerNickname.trim();
     if (!name && !nick) return;
@@ -319,6 +318,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
       setCreatePlayerMsg("Modo demo: conectá Firebase o D1 para crear jugadores.");
       return;
     }
+    if (creatingPlayer) return;
     const display_name = name || nick;
     const nickname = nick || null;
     setCreatingPlayer(true);
@@ -351,10 +351,14 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           draft_seed: null,
         };
       }
-      setExtraPlayers((prev) => [...prev, created]);
-      setConvocados((prev) => new Set(prev).add(created.id));
+      setExtraPlayers((prev) => (prev.some((p) => p.id === created.id) ? prev : [...prev, created]));
+      setConvocados((prev) => {
+        const next = new Set(prev);
+        next.add(created.id);
+        return next;
+      });
       closeCreatePlayer();
-      router.refresh();
+      // No router.refresh(): remonta el form y pierde convocatoria / el jugador recién creado.
     } catch (err) {
       setCreatePlayerMsg(err instanceof Error ? err.message : "Error al crear jugador");
     } finally {
@@ -1061,10 +1065,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         </p>
 
         {showCreatePlayer ? (
-          <form
-            onSubmit={(e) => void createPlayerInline(e)}
-            className="mt-3 rounded-xl border border-accent/40 bg-surface p-3"
-          >
+          <div className="mt-3 rounded-xl border border-accent/40 bg-surface p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Nuevo jugador</h3>
               <button
@@ -1082,12 +1083,24 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                   placeholder="Nombre completo"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void createPlayerInline();
+                    }
+                  }}
                   className="min-h-[44px] flex-1 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm outline-none ring-accent/20 focus:ring-2"
                 />
                 <input
                   placeholder="Apodo (visible en partidos)"
                   value={newPlayerNickname}
                   onChange={(e) => setNewPlayerNickname(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void createPlayerInline();
+                    }
+                  }}
                   className="min-h-[44px] flex-1 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm outline-none ring-accent/20 focus:ring-2"
                 />
               </div>
@@ -1101,12 +1114,13 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                 Invitado (no suma en la tabla general ni en goleadores)
               </label>
               <button
-                type="submit"
+                type="button"
                 disabled={
                   creatingPlayer ||
                   offlineDemo ||
                   (!newPlayerName.trim() && !newPlayerNickname.trim())
                 }
+                onClick={() => void createPlayerInline()}
                 className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-canvas disabled:opacity-50 sm:self-start"
               >
                 <Plus className="h-4 w-4" />
@@ -1116,7 +1130,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
                 <p className="text-sm text-red-400">{createPlayerMsg}</p>
               ) : null}
             </div>
-          </form>
+          </div>
         ) : (
           <button
             type="button"
