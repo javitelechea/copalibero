@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChampionHistoria2025 } from "@/components/ChampionHistoria2025";
+import { RecentFormBadges } from "@/components/RecentFormBadges";
 import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
@@ -181,18 +182,19 @@ export default function HomePage() {
             Todavía no hay partidos cargados.
           </p>
         ) : (
-          <div className="w-full min-w-0 rounded-2xl border border-border bg-surface shadow-sm">
+          <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
             <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.55vw,0.75rem)] leading-tight sm:text-xs">
               <colgroup>
-                <col style={{ width: "5.5%" }} />
-                <col style={{ width: "38%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "32%" }} />
+                <col style={{ width: "7%" }} />
+                <col className="hidden sm:table-column" style={{ width: "7%" }} />
+                <col className="hidden sm:table-column" style={{ width: "7%" }} />
+                <col className="hidden sm:table-column" style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+                <col className="hidden sm:table-column" style={{ width: "6%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "18%" }} />
               </colgroup>
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
@@ -204,23 +206,26 @@ export default function HomePage() {
                   <th className="px-0 py-1.5 text-center sm:py-2" title="Partidos jugados">
                     PJ
                   </th>
-                  <th className="px-0 py-1.5 text-center sm:py-2" title="Ganados">
+                  <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Ganados">
                     PG
                   </th>
-                  <th className="px-0 py-1.5 text-center sm:py-2" title="Empatados">
+                  <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Empatados">
                     PE
                   </th>
-                  <th className="px-0 py-1.5 text-center sm:py-2" title="Perdidos">
+                  <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Perdidos">
                     PP
                   </th>
                   <th className="px-0 py-1.5 text-center sm:py-2" title="Goles">
                     G
                   </th>
-                  <th className="px-0 py-1.5 text-center sm:py-2" title="Bonus">
+                  <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Bonus">
                     B
                   </th>
                   <th className="px-0 py-1.5 text-center text-accent sm:py-2" title="Puntos torneo">
                     Pts
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Últimos resultados">
+                    Últ
                   </th>
                 </tr>
               </thead>
@@ -252,13 +257,24 @@ export default function HomePage() {
                     <td className="px-0 py-1 text-center align-middle tabular-nums text-muted sm:py-1.5">
                       {row.played}
                     </td>
-                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.wins}</td>
-                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.draws}</td>
-                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.losses}</td>
+                    <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
+                      {row.wins}
+                    </td>
+                    <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
+                      {row.draws}
+                    </td>
+                    <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
+                      {row.losses}
+                    </td>
                     <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.goals}</td>
-                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.bonus}</td>
+                    <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
+                      {row.bonus}
+                    </td>
                     <td className="px-0 py-1 text-center align-middle font-black tabular-nums text-accent sm:py-1.5 sm:text-sm">
                       {row.points}
+                    </td>
+                    <td className="px-0 py-1 text-center align-middle sm:py-1.5">
+                      <RecentFormBadges form={row.recentForm} />
                     </td>
                   </tr>
                 ))}

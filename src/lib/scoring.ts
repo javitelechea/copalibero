@@ -1,5 +1,9 @@
 import { comparePlayers } from "@/lib/player-label";
-import { isGoldenGoalMatch, teamMatchResult } from "@/lib/match-outcome";
+import {
+  isGoldenGoalMatch,
+  teamMatchResult,
+  type TeamMatchResult,
+} from "@/lib/match-outcome";
 import { isTablePlayer } from "@/lib/player-guest";
 import type {
   ConfirmationStatus,
@@ -8,6 +12,9 @@ import type {
   MatchRow,
   PlayerRow,
 } from "@/lib/types";
+
+/** Cuántos resultados recientes se guardan para la columna Últ. */
+export const RECENT_FORM_MAX = 5;
 
 /** Puntos por reglas del torneo — ajustá acá */
 export const SCORING = {
@@ -39,9 +46,14 @@ export type StandingRow = {
   noShowPenalties: number;
   /** Puntos extra por victorias con diferencia ≥ `SCORING.bigWinMarginMin` goles. */
   bonus: number;
+  /** Últimos resultados en orden cronológico (el más reciente al final). */
+  recentForm: TeamMatchResult[];
 };
 
-type StandingAccum = Omit<StandingRow, "player"> & { playerId: string };
+type StandingAccum = Omit<StandingRow, "player" | "recentForm"> & {
+  playerId: string;
+  form: TeamMatchResult[];
+};
 
 function matchPointsForOutcome(outcome: "win" | "draw" | "loss"): number {
   if (outcome === "win") return SCORING.win;
@@ -57,7 +69,10 @@ export function computeStandings(
   goals: MatchGoalRow[],
   confirmations: { match_id: string; player_id: string; status: ConfirmationStatus }[]
 ): StandingRow[] {
-  const playedMatches = matches.filter((m) => m.status === "played");
+  const playedMatches = matches
+    .filter((m) => m.status === "played")
+    .slice()
+    .sort((a, b) => a.played_at.localeCompare(b.played_at));
   const lineupSet = new Set(
     lineups.filter((l) => l.team !== "pool").map((l) => `${l.match_id}:${l.player_id}`)
   );
@@ -87,6 +102,7 @@ export function computeStandings(
       presence: 0,
       noShowPenalties: 0,
       bonus: 0,
+      form: [],
     });
   }
 
@@ -102,6 +118,7 @@ export function computeStandings(
       st.presence += 1;
       st.points += SCORING.presence;
       const o = teamMatchResult(m, team);
+      st.form.push(o);
       if (o === "win") st.wins += 1;
       else if (o === "draw") st.draws += 1;
       else st.losses += 1;
@@ -153,6 +170,7 @@ export function computeStandings(
       presence: s.presence,
       noShowPenalties: s.noShowPenalties,
       bonus: s.bonus,
+      recentForm: s.form.slice(-RECENT_FORM_MAX),
     });
   }
 
