@@ -6,11 +6,18 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchGoals, fetchMatchLineups, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
-import { playerLabel } from "@/lib/player-label";
-import { computeTopScorers } from "@/lib/top-scorers";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
+import { computeTopScorers, type TopScorerRow } from "@/lib/top-scorers";
+
+type SortKey = "goals" | "avg";
+
+function goalsPerPlayed(row: TopScorerRow): number {
+  return row.played > 0 ? row.goals / row.played : 0;
+}
 
 export default function GoleadoresPage() {
-  const [rows, setRows] = useState<ReturnType<typeof computeTopScorers>>([]);
+  const [rows, setRows] = useState<TopScorerRow[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [loading, setLoading] = useState(canUsePublicApp);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +46,23 @@ export default function GoleadoresPage() {
   }, []);
 
   const totalGoals = useMemo(() => rows.reduce((s, r) => s + r.goals, 0), [rows]);
+
+  const sortedRows = useMemo(() => {
+    const list = [...rows];
+    list.sort((a, b) => {
+      if (sortKey === "avg") {
+        const diff = goalsPerPlayed(b) - goalsPerPlayed(a);
+        if (diff !== 0) return diff;
+        if (b.goals !== a.goals) return b.goals - a.goals;
+      } else {
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        const diff = goalsPerPlayed(b) - goalsPerPlayed(a);
+        if (diff !== 0) return diff;
+      }
+      return comparePlayers(a.player, b.player);
+    });
+    return list;
+  }, [rows, sortKey]);
 
   if (!canUsePublicApp()) {
     return (
@@ -100,14 +124,36 @@ export default function GoleadoresPage() {
                 <th className="px-2 py-2 text-center" title="Partidos jugados">
                   PJ
                 </th>
-                <th className="px-2 py-2 text-center text-accent">Goles</th>
-                <th className="px-2 py-2 text-center" title="Goles por partido jugado">
-                  G/P
+                <th className="px-2 py-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setSortKey("goals")}
+                    className={`w-full uppercase tracking-wide ${
+                      sortKey === "goals" ? "text-accent" : "text-muted hover:text-fg"
+                    }`}
+                    title="Ordenar por goles"
+                    aria-pressed={sortKey === "goals"}
+                  >
+                    Goles{sortKey === "goals" ? " ↓" : ""}
+                  </button>
+                </th>
+                <th className="px-2 py-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setSortKey("avg")}
+                    className={`w-full uppercase tracking-wide ${
+                      sortKey === "avg" ? "text-accent" : "text-muted hover:text-fg"
+                    }`}
+                    title="Ordenar por goles por partido"
+                    aria-pressed={sortKey === "avg"}
+                  >
+                    G/P{sortKey === "avg" ? " ↓" : ""}
+                  </button>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => (
+              {sortedRows.map((row, i) => (
                 <tr
                   key={row.player.id}
                   className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2/60"
@@ -129,7 +175,7 @@ export default function GoleadoresPage() {
                     {row.goals}
                   </td>
                   <td className="px-2 py-2 text-center align-middle tabular-nums text-muted">
-                    {row.played > 0 ? (row.goals / row.played).toFixed(1) : "—"}
+                    {row.played > 0 ? goalsPerPlayed(row).toFixed(1) : "—"}
                   </td>
                 </tr>
               ))}
