@@ -5,7 +5,7 @@ import { NextMatchTeamDraft } from "@/components/NextMatchTeamDraft";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { fetchTournamentSnapshot } from "@/lib/firestore-queries";
 import { computeStandings } from "@/lib/scoring";
-import type { MatchPlayerRow, MatchWithDetails, PlayerRow } from "@/lib/types";
+import type { MatchPlayerRow, MatchRow, MatchWithDetails, PlayerRow } from "@/lib/types";
 
 export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails }) {
   const { isAdmin, ready } = useIsAdmin();
