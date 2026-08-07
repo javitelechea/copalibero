@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
-import { fetchMatchGoals, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
+import { fetchMatchGoals, fetchMatchLineups, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
 import { computeTopScorers } from "@/lib/top-scorers";
 
@@ -19,13 +19,14 @@ export default function GoleadoresPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, goals] = await Promise.all([
+        const [players, matches, lineups, goals] = await Promise.all([
           fetchPlayers(true),
           fetchMatches(),
+          fetchMatchLineups(),
           fetchMatchGoals(),
         ]);
         if (cancelled) return;
-        setRows(computeTopScorers(players, matches, goals));
+        setRows(computeTopScorers(players, matches, lineups, goals));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Error al cargar goleadores");
       } finally {
@@ -96,11 +97,11 @@ export default function GoleadoresPage() {
               <tr className="border-b border-border bg-surface-2 text-xs font-bold uppercase tracking-wide text-muted">
                 <th className="px-2 py-2 text-center">#</th>
                 <th className="px-2 py-2 text-left">Apodo</th>
-                <th className="px-2 py-2 text-center" title="Partidos en los que anotó">
-                  Partidos
+                <th className="px-2 py-2 text-center" title="Partidos jugados">
+                  PJ
                 </th>
                 <th className="px-2 py-2 text-center text-accent">Goles</th>
-                <th className="px-2 py-2 text-center" title="Goles por partido">
+                <th className="px-2 py-2 text-center" title="Goles por partido jugado">
                   G/P
                 </th>
               </tr>
@@ -122,15 +123,13 @@ export default function GoleadoresPage() {
                     </Link>
                   </td>
                   <td className="px-2 py-2 text-center align-middle tabular-nums text-muted">
-                    {row.scoringMatches}
+                    {row.played}
                   </td>
                   <td className="px-2 py-2 text-center align-middle font-black tabular-nums text-accent">
                     {row.goals}
                   </td>
                   <td className="px-2 py-2 text-center align-middle tabular-nums text-muted">
-                    {row.scoringMatches > 0
-                      ? (row.goals / row.scoringMatches).toFixed(1)
-                      : "—"}
+                    {row.played > 0 ? (row.goals / row.played).toFixed(1) : "—"}
                   </td>
                 </tr>
               ))}
