@@ -8,7 +8,7 @@ import { getFirestoreDb } from "@/lib/firebase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatarDataUrl";
 import { isD1Backend, isOfflineDemoData } from "@/lib/env";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
-import { d1CreatePlayer, d1UpdatePlayer, fetchPlayers } from "@/lib/firestore-queries";
+import { d1CreatePlayer, d1UpdatePlayer, fetchPlayers, invalidateTournamentDataCache } from "@/lib/firestore-queries";
 import { isGuestPlayer } from "@/lib/player-guest";
 import type { PlayerRow } from "@/lib/types";
 import { Plus, Search } from "lucide-react";
@@ -108,6 +108,7 @@ export function PlayersAdmin() {
       setNewGuest(false);
       setShowCreate(false);
       setQuery("");
+      invalidateTournamentDataCache();
       router.refresh();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Error al crear");
@@ -144,6 +145,7 @@ export function PlayersAdmin() {
     const db = getFirestoreDb();
     await updateDoc(doc(db, "players", id), patch as Record<string, unknown>);
     setPlayers((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    invalidateTournamentDataCache();
     router.refresh();
   }
 

@@ -3,15 +3,9 @@
 import { useEffect, useState } from "react";
 import { NextMatchTeamDraft } from "@/components/NextMatchTeamDraft";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import {
-  fetchConfirmations,
-  fetchMatchGoals,
-  fetchMatchLineups,
-  fetchMatches,
-  fetchPlayers,
-} from "@/lib/firestore-queries";
+import { fetchTournamentSnapshot } from "@/lib/firestore-queries";
 import { computeStandings } from "@/lib/scoring";
-import type { MatchPlayerRow, MatchRow, MatchWithDetails, PlayerRow } from "@/lib/types";
+import type { MatchPlayerRow, MatchWithDetails, PlayerRow } from "@/lib/types";
 
 export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails }) {
   const { isAdmin, ready } = useIsAdmin();
@@ -24,18 +18,14 @@ export function MatchTeamDraftAdminSection({ match }: { match: MatchWithDetails 
     if (!ready || !isAdmin || (match.status !== "scheduled" && match.status !== "loaded")) return;
     let cancelled = false;
     setLoaded(false);
-    void Promise.all([
-      fetchPlayers(true),
-      fetchMatches(),
-      fetchMatchLineups(),
-      fetchMatchGoals(),
-      fetchConfirmations(),
-    ])
-      .then(([pl, ms, ln, gl, cf]) => {
+    void fetchTournamentSnapshot({ confirmations: true })
+      .then((snap) => {
         if (cancelled) return;
-        setPlayers(pl);
-        setLineups(ln);
-        setStandings(computeStandings(pl, ms, ln, gl, cf));
+        setPlayers(snap.players);
+        setLineups(snap.lineups);
+        setStandings(
+          computeStandings(snap.players, snap.matches, snap.lineups, snap.goals, snap.confirmations)
+        );
         setLoaded(true);
       })
       .catch(() => {

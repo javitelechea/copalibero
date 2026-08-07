@@ -11,6 +11,7 @@ import {
   deleteDocsWhere,
   createGuestPlayer,
   d1CreatePlayer,
+  invalidateTournamentDataCache,
   saveMatchD1,
 } from "@/lib/firestore-queries";
 import { isGuestPlayer } from "@/lib/player-guest";
@@ -350,6 +351,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           created_at,
           draft_seed: null,
         };
+        invalidateTournamentDataCache();
       }
       setExtraPlayers((prev) => (prev.some((p) => p.id === created.id) ? prev : [...prev, created]));
       setConvocados((prev) => {
@@ -596,6 +598,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             notes: notes.trim() || null,
             pool: [...convocados],
           });
+          invalidateTournamentDataCache();
           router.push("/admin/partidos");
           router.refresh();
           return;
@@ -625,6 +628,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           matchId = ref.id;
         }
         if (matchId) await writePoolLineups(matchId);
+        invalidateTournamentDataCache();
         router.push("/admin/partidos");
         router.refresh();
       } catch (err) {
@@ -651,6 +655,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
             notes: notes.trim() || null,
             teams: { A: [...teamA], B: [...teamB] },
           });
+          invalidateTournamentDataCache();
           router.push("/admin/partidos");
           router.refresh();
           return;
@@ -680,6 +685,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           matchId = ref.id;
         }
         if (matchId) await writeTeamsLineups(matchId);
+        invalidateTournamentDataCache();
         router.push("/admin/partidos");
         router.refresh();
       } catch (err) {
@@ -721,6 +727,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
           teams: { A: [...teamA], B: [...teamB] },
           goals,
         });
+        invalidateTournamentDataCache();
         router.push("/admin/partidos");
         router.refresh();
         return;
@@ -779,6 +786,7 @@ export function MatchForm({ players, initialMatch, createDefaults }: Props) {
         await batch.commit();
       }
 
+      invalidateTournamentDataCache();
       router.push("/admin/partidos");
       router.refresh();
     } catch (err) {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { fetchMatches } from "@/lib/firestore-queries";
+import { fetchMatchesList } from "@/lib/firestore-queries";
 import { LIBERO_MATCH_NOTES, nextThursdayLocalYmd } from "@/lib/weekly-match-defaults";
 import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
 import { matchScoreSummary } from "@/lib/match-outcome";
@@ -14,9 +14,17 @@ export default function AdminPartidosPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void fetchMatches()
-      .then(setMatches)
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    void fetchMatchesList()
+      .then((list) => {
+        if (!cancelled) setMatches(list);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const quickNewHref = useMemo(() => {

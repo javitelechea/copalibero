@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
-import { fetchMatches } from "@/lib/firestore-queries";
+import { fetchMatchesList } from "@/lib/firestore-queries";
 import { matchStatusLabel, showsMatchScore } from "@/lib/match-status";
 import { matchScoreSummary } from "@/lib/match-outcome";
 import type { MatchRow } from "@/lib/types";
@@ -16,9 +16,17 @@ export default function PartidosPage() {
 
   useEffect(() => {
     if (!canUsePublicApp()) return;
-    void fetchMatches()
-      .then(setMatches)
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    void fetchMatchesList()
+      .then((list) => {
+        if (!cancelled) setMatches(list);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!canUsePublicApp()) {

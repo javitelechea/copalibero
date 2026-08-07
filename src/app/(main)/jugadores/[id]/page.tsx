@@ -8,12 +8,10 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import {
-  fetchConfirmations,
   fetchMatchGoals,
   fetchMatchLineups,
-  fetchMatches,
   fetchPlayerById,
-  fetchPlayers,
+  fetchTournamentSnapshot,
 } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
 import { computeStandings } from "@/lib/scoring";
@@ -35,20 +33,18 @@ export default function JugadorPage() {
     if (!id || !canUsePublicApp()) return;
     let cancelled = false;
     void (async () => {
-      const [p, allPlayers, m, lu, g, conf] = await Promise.all([
+      const [p, snap] = await Promise.all([
         fetchPlayerById(id),
-        fetchPlayers(true),
-        fetchMatches(),
-        fetchMatchLineups(),
-        fetchMatchGoals(),
-        fetchConfirmations(),
+        fetchTournamentSnapshot({ confirmations: true }),
       ]);
       if (cancelled) return;
       setPlayer(p);
-      setStandings(computeStandings(allPlayers, m, lu, g, conf));
-      setMatches(m);
-      setLineups(lu);
-      setGoals(g);
+      setStandings(
+        computeStandings(snap.players, snap.matches, snap.lineups, snap.goals, snap.confirmations)
+      );
+      setMatches(snap.matches);
+      setLineups(snap.lineups);
+      setGoals(snap.goals);
     })();
     return () => {
       cancelled = true;

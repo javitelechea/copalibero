@@ -10,11 +10,7 @@ import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
 import { playerLabel } from "@/lib/player-label";
 import {
-  fetchConfirmations,
-  fetchMatchGoals,
-  fetchMatchLineups,
-  fetchMatches,
-  fetchPlayers,
+  fetchTournamentSnapshot,
 } from "@/lib/firestore-queries";
 import { matchStatusLabel } from "@/lib/match-status";
 import { formatMatchDayShort, pickLastPlayedMatch, pickNextScheduledMatch } from "@/lib/next-match";
@@ -36,13 +32,9 @@ export default function HomePage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, lineups, goals, confirmations] = await Promise.all([
-          fetchPlayers(true),
-          fetchMatches(),
-          fetchMatchLineups(),
-          fetchMatchGoals(),
-          fetchConfirmations(),
-        ]);
+        const { players, matches, lineups, goals, confirmations } = await fetchTournamentSnapshot({
+          confirmations: true,
+        });
         if (cancelled) return;
         setStandings(computeStandings(players, matches, lineups, goals, confirmations));
         setRecent(matches.filter((m) => m.status === "played").slice(0, 3));
@@ -109,6 +101,12 @@ export default function HomePage() {
                 Las variables Firebase ya están cargadas. Este fallo viene del{" "}
                 <strong>proyecto en Google</strong> (recurso del bucket por defecto), no de reglas de
                 Firestore ni de un .env mal pegado.
+              </>
+            ) : error.toLowerCase().includes("quota") ||
+              error.toLowerCase().includes("resource-exhausted") ? (
+              <>
+                Las variables Firebase están bien. Esto es <strong>cuota diaria</strong> de
+                Firestore, no reglas ni API key.
               </>
             ) : (
               <>

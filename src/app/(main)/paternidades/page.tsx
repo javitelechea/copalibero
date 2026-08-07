@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
-import { fetchMatchLineups, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
+import { fetchTournamentSnapshot } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
 import { isTablePlayer } from "@/lib/player-guest";
 import {
@@ -93,11 +93,10 @@ export default function PaternidadesPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, lineups] = await Promise.all([
-          fetchPlayers(true),
-          fetchMatches(),
-          fetchMatchLineups(),
-        ]);
+        const { players, matches, lineups } = await fetchTournamentSnapshot({
+          goals: false,
+          confirmations: false,
+        });
         if (cancelled) return;
         const torneo = players.filter(isTablePlayer);
         setPlayedCount(matches.filter((m) => m.status === "played").length);

@@ -39,6 +39,9 @@ export function getFirebaseAuth(): Auth {
 /** Texto extra para errores típicos del cliente (UI). */
 export function firebaseErrorUserHint(message: string): string | null {
   const m = message.toLowerCase();
+  if (m.includes("quota exceeded") || m.includes("resource-exhausted") || m.includes("resource exhausted")) {
+    return "Se agotó la cuota diaria gratis de Firestore (plan Spark: ~50.000 lecturas/día). Se renueva cerca de medianoche hora del Pacífico (≈4–5 AM Argentina). Mientras tanto la app no puede leer datos. Opciones: esperar el reset, o pasar el proyecto a Blaze (sigue habiendo cupo gratis; solo cobrás si te pasás).";
+  }
   if (m.includes("firebasestorage.app") || m.includes("firebase storage")) {
     return "Esto ya no se arregla con reglas de Firestore ni con storageBucket en el código: Google rechaza el recurso del bucket por defecto (*.firebasestorage.app) en tu proyecto. En muchos casos la salida es pasar el proyecto a plan Blaze (no implica cobro si no salís del tier gratis; no hace falta “usar” Storage). Alternativas sin tarjeta: NEXT_PUBLIC_COPALIBERO_DEMO=1 en Cloudflare sin variables Firebase, u otro proyecto Firebase. Más info: firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024";
   }

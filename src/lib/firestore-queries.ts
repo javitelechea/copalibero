@@ -28,6 +28,7 @@ import {
   rosterCountsFromLineups,
 } from "@/lib/match-status";
 import { parseGoldenGoalWinner } from "@/lib/match-outcome";
+import { cachedFetch, invalidateQueryCache } from "@/lib/query-cache";
 import type {
   MatchConfirmationRow,
   MatchGoalRow,
@@ -38,6 +39,28 @@ import type {
   PlayerRow,
   Team,
 } from "@/lib/types";
+
+export { invalidateQueryCache };
+
+const CACHE = {
+  players: "players:all",
+  matches: "matches:raw",
+  lineups: "match_players",
+  goals: "match_goals",
+  confirmations: "match_confirmations",
+  admin: (uid: string) => `admin:${uid}`,
+} as const;
+
+/** Limpia lecturas cacheadas tras editar torneo (admin). */
+export function invalidateTournamentDataCache(): void {
+  invalidateQueryCache(
+    CACHE.players,
+    CACHE.matches,
+    CACHE.lineups,
+    CACHE.goals,
+    CACHE.confirmations
+  );
+}
 
 const C = {
   players: "players",
@@ -124,14 +147,20 @@ export async function fetchPlayers(activeOnly = true): Promise<PlayerRow[]> {
     return list.sort(comparePlayers);
   }
   if (isD1Backend()) {
-    const j = await cfJson<{ players: PlayerRow[] }>(`players?activeOnly=${activeOnly ? "1" : "0"}`);
-    return j.players;
+    const all = await cachedFetch(CACHE.players, async () => {
+      const j = await cfJson<{ players: PlayerRow[] }>("players?activeOnly=0");
+      return j.players;
+    });
+    const list = activeOnly ? all.filter((p) => p.active) : all;
+    return [...list].sort(comparePlayers);
   }
-  const db = getFirestoreDb();
-  const snap = await getDocs(query(collection(db, C.players), orderBy("display_name")));
-  let list = snap.docs.map((d) => playerFromDoc(d));
-  if (activeOnly) list = list.filter((p) => p.active);
-  return list;
+  const all = await cachedFetch(CACHE.players, async () => {
+    const db = getFirestoreDb();
+    const snap = await getDocs(query(collection(db, C.players), orderBy("display_name")));
+    return snap.docs.map((d) => playerFromDoc(d));
+  });
+  const list = activeOnly ? all.filter((p) => p.active) : all;
+  return [...list].sort(comparePlayers);
 }
 
 export async function fetchPlayerById(id: string): Promise<PlayerRow | null> {
@@ -139,6 +168,9 @@ export async function fetchPlayerById(id: string): Promise<PlayerRow | null> {
     return DEMO_PLAYERS.find((p) => p.id === id) ?? null;
   }
   if (isD1Backend()) {
+    const cached = await fetchPlayers(false);
+    const hit = cached.find((p) => p.id === id);
+    if (hit) return hit;
     try {
       const j = await cfJson<{ player: PlayerRow }>(`players/${encodeURIComponent(id)}`);
       return j.player;
@@ -146,6 +178,9 @@ export async function fetchPlayerById(id: string): Promise<PlayerRow | null> {
       return null;
     }
   }
+  const cached = await fetchPlayers(false);
+  const hit = cached.find((p) => p.id === id);
+  if (hit) return hit;
   const db = getFirestoreDb();
   const d = await getDoc(doc(db, C.players, id));
   if (!d.exists()) return null;
@@ -159,6 +194,32 @@ function matchesWithResolvedStatus(matches: MatchRow[], lineups: MatchPlayerRow[
   }));
 }
 
+async function fetchMatchesRaw(): Promise<MatchRow[]> {
+  if (isOfflineDemoData()) {
+    return [...DEMO_MATCHES].sort((a, b) => b.played_at.localeCompare(a.played_at));
+  }
+  if (isD1Backend()) {
+    return cachedFetch(CACHE.matches, async () => {
+      const j = await cfJson<{ matches: MatchRow[] }>("matches");
+      return j.matches;
+    });
+  }
+  return cachedFetch(CACHE.matches, async () => {
+    const db = getFirestoreDb();
+    const snap = await getDocs(query(collection(db, C.matches), orderBy("played_at", "desc")));
+    return snap.docs.map((d) => matchFromDoc(d));
+  });
+}
+
+/**
+ * Lista de partidos sin forzar lectura de nóminas.
+ * Usa el status guardado (suficiente para listados).
+ */
+export async function fetchMatchesList(): Promise<MatchRow[]> {
+  return fetchMatchesRaw();
+}
+
+/** Partidos con status resuelto según nómina (tabla, scoring, etc.). */
 export async function fetchMatches(): Promise<MatchRow[]> {
   if (isOfflineDemoData()) {
     return matchesWithResolvedStatus(
@@ -166,22 +227,8 @@ export async function fetchMatches(): Promise<MatchRow[]> {
       DEMO_LINEUPS
     );
   }
-  if (isD1Backend()) {
-    const [j, lineups] = await Promise.all([
-      cfJson<{ matches: MatchRow[] }>("matches"),
-      fetchMatchLineups(),
-    ]);
-    return matchesWithResolvedStatus(j.matches, lineups);
-  }
-  const db = getFirestoreDb();
-  const [snap, lineups] = await Promise.all([
-    getDocs(query(collection(db, C.matches), orderBy("played_at", "desc"))),
-    fetchMatchLineups(),
-  ]);
-  return matchesWithResolvedStatus(
-    snap.docs.map((d) => matchFromDoc(d)),
-    lineups
-  );
+  const [raw, lineups] = await Promise.all([fetchMatchesRaw(), fetchMatchLineups()]);
+  return matchesWithResolvedStatus(raw, lineups);
 }
 
 export async function fetchMatchLineups(): Promise<MatchPlayerRow[]> {
@@ -189,18 +236,22 @@ export async function fetchMatchLineups(): Promise<MatchPlayerRow[]> {
     return [...DEMO_LINEUPS];
   }
   if (isD1Backend()) {
-    const j = await cfJson<{ rows: MatchPlayerRow[] }>("match_players");
-    return j.rows;
+    return cachedFetch(CACHE.lineups, async () => {
+      const j = await cfJson<{ rows: MatchPlayerRow[] }>("match_players");
+      return j.rows;
+    });
   }
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, C.matchPlayers));
-  return snap.docs.map((d) => {
-    const x = d.data();
-    return {
-      match_id: String(x.match_id),
-      player_id: String(x.player_id),
-      team: rosterTeamFromFirestore(x.team),
-    };
+  return cachedFetch(CACHE.lineups, async () => {
+    const db = getFirestoreDb();
+    const snap = await getDocs(collection(db, C.matchPlayers));
+    return snap.docs.map((d) => {
+      const x = d.data();
+      return {
+        match_id: String(x.match_id),
+        player_id: String(x.player_id),
+        team: rosterTeamFromFirestore(x.team),
+      };
+    });
   });
 }
 
@@ -209,19 +260,23 @@ export async function fetchMatchGoals(): Promise<MatchGoalRow[]> {
     return [...DEMO_GOALS];
   }
   if (isD1Backend()) {
-    const j = await cfJson<{ rows: MatchGoalRow[] }>("match_goals");
-    return j.rows;
+    return cachedFetch(CACHE.goals, async () => {
+      const j = await cfJson<{ rows: MatchGoalRow[] }>("match_goals");
+      return j.rows;
+    });
   }
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, C.matchGoals));
-  return snap.docs.map((d) => {
-    const x = d.data();
-    return {
-      id: d.id,
-      match_id: String(x.match_id),
-      player_id: String(x.player_id),
-      goals: Number(x.goals ?? 1),
-    };
+  return cachedFetch(CACHE.goals, async () => {
+    const db = getFirestoreDb();
+    const snap = await getDocs(collection(db, C.matchGoals));
+    return snap.docs.map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        match_id: String(x.match_id),
+        player_id: String(x.player_id),
+        goals: Number(x.goals ?? 1),
+      };
+    });
   });
 }
 
@@ -230,27 +285,59 @@ export async function fetchConfirmations(): Promise<MatchConfirmationRow[]> {
     return [...DEMO_CONFIRMATIONS];
   }
   if (isD1Backend()) {
-    const j = await cfJson<{ rows: MatchConfirmationRow[] }>("match_confirmations");
-    return j.rows.map((row) => {
-      const st = String(row.status);
-      const status = st === "maybe" || st === "declined" ? st : ("confirmed" as const);
-      return { ...row, status };
+    return cachedFetch(CACHE.confirmations, async () => {
+      const j = await cfJson<{ rows: MatchConfirmationRow[] }>("match_confirmations");
+      return j.rows.map((row) => {
+        const st = String(row.status);
+        const status = st === "maybe" || st === "declined" ? st : ("confirmed" as const);
+        return { ...row, status };
+      });
     });
   }
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, C.matchConfirmations));
-  return snap.docs.map((d) => {
-    const x = d.data();
-    const st = String(x.status);
-    const status =
-      st === "maybe" || st === "declined" ? st : ("confirmed" as const);
-    return {
-      match_id: String(x.match_id),
-      player_id: String(x.player_id),
-      status,
-      updated_at: isoFromField(x.updated_at),
-    };
+  return cachedFetch(CACHE.confirmations, async () => {
+    const db = getFirestoreDb();
+    const snap = await getDocs(collection(db, C.matchConfirmations));
+    return snap.docs.map((d) => {
+      const x = d.data();
+      const st = String(x.status);
+      const status = st === "maybe" || st === "declined" ? st : ("confirmed" as const);
+      return {
+        match_id: String(x.match_id),
+        player_id: String(x.player_id),
+        status,
+        updated_at: isoFromField(x.updated_at),
+      };
+    });
   });
+}
+
+export type TournamentSnapshot = {
+  players: PlayerRow[];
+  matches: MatchRow[];
+  lineups: MatchPlayerRow[];
+  goals: MatchGoalRow[];
+  confirmations: MatchConfirmationRow[];
+};
+
+/** Bundle tipico de tabla / goleadores / ficha: una sola fan-out deduplicada. */
+export async function fetchTournamentSnapshot(opts?: {
+  activePlayersOnly?: boolean;
+  confirmations?: boolean;
+  goals?: boolean;
+}): Promise<TournamentSnapshot> {
+  const activePlayersOnly = opts?.activePlayersOnly !== false;
+  const needConfirmations = opts?.confirmations === true;
+  const needGoals = opts?.goals !== false;
+
+  const [players, matches, lineups, goals, confirmations] = await Promise.all([
+    fetchPlayers(activePlayersOnly),
+    fetchMatches(),
+    fetchMatchLineups(),
+    needGoals ? fetchMatchGoals() : Promise.resolve([] as MatchGoalRow[]),
+    needConfirmations ? fetchConfirmations() : Promise.resolve([] as MatchConfirmationRow[]),
+  ]);
+
+  return { players, matches, lineups, goals, confirmations };
 }
 
 function matchDetailsWithResolvedStatus(m: MatchWithDetails): MatchWithDetails {
@@ -258,6 +345,34 @@ function matchDetailsWithResolvedStatus(m: MatchWithDetails): MatchWithDetails {
     ...m,
     status: resolveMatchStatus(m.status, rosterCountsFromDetails(m.match_players)),
   };
+}
+
+function buildMatchDetails(
+  match: MatchRow,
+  lineups: MatchPlayerRow[],
+  goals: MatchGoalRow[],
+  players: PlayerRow[]
+): MatchWithDetails {
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const rows = lineups.filter((l) => l.match_id === match.id);
+  const match_players = rows.map((r) => {
+    const p = byId.get(r.player_id);
+    return {
+      team: r.team,
+      players: p
+        ? {
+            id: p.id,
+            display_name: p.display_name,
+            nickname: p.nickname,
+            avatar_url: p.avatar_url,
+          }
+        : null,
+    };
+  });
+  const match_goals = goals
+    .filter((g) => g.match_id === match.id)
+    .map((g) => ({ id: g.id, player_id: g.player_id, goals: g.goals }));
+  return matchDetailsWithResolvedStatus({ ...match, match_players, match_goals });
 }
 
 export async function fetchMatchById(matchId: string): Promise<MatchWithDetails | null> {
@@ -273,55 +388,24 @@ export async function fetchMatchById(matchId: string): Promise<MatchWithDetails 
       return null;
     }
   }
-  const db = getFirestoreDb();
-  const mSnap = await getDoc(doc(db, C.matches, matchId));
-  if (!mSnap.exists()) return null;
-  const match = matchFromDoc(mSnap);
 
-  const lp = query(collection(db, C.matchPlayers), where("match_id", "==", matchId));
-  const ls = await getDocs(lp);
-  const rows: MatchPlayerRow[] = ls.docs.map((d) => {
-    const x = d.data();
-    return {
-      match_id: String(x.match_id),
-      player_id: String(x.player_id),
-      team: rosterTeamFromFirestore(x.team),
-    };
-  });
+  const [rawMatches, lineups, goals, players] = await Promise.all([
+    fetchMatchesRaw(),
+    fetchMatchLineups(),
+    fetchMatchGoals(),
+    fetchPlayers(false),
+  ]);
 
-  const playerIds = [...new Set(rows.map((r) => r.player_id))];
-  const mini = new Map<string, Pick<PlayerRow, "id" | "display_name" | "nickname" | "avatar_url">>();
-  await Promise.all(
-    playerIds.map(async (pid) => {
-      const ps = await getDoc(doc(db, C.players, pid));
-      if (!ps.exists()) return;
-      const p = playerFromDoc(ps);
-      mini.set(pid, {
-        id: p.id,
-        display_name: p.display_name,
-        nickname: p.nickname,
-        avatar_url: p.avatar_url,
-      });
-    })
-  );
+  let match = rawMatches.find((m) => m.id === matchId) ?? null;
+  if (!match) {
+    const db = getFirestoreDb();
+    const mSnap = await getDoc(doc(db, C.matches, matchId));
+    if (!mSnap.exists()) return null;
+    match = matchFromDoc(mSnap);
+    invalidateQueryCache(CACHE.matches);
+  }
 
-  const match_players = rows.map((r) => ({
-    team: r.team,
-    players: mini.get(r.player_id) ?? null,
-  }));
-
-  const gq = query(collection(db, C.matchGoals), where("match_id", "==", matchId));
-  const gs = await getDocs(gq);
-  const match_goals = gs.docs.map((d) => {
-    const x = d.data();
-    return {
-      id: d.id,
-      player_id: String(x.player_id),
-      goals: Number(x.goals ?? 1),
-    };
-  });
-
-  return matchDetailsWithResolvedStatus({ ...match, match_players, match_goals });
+  return buildMatchDetails(match, lineups, goals, players);
 }
 
 export async function isUserAdmin(uid: string): Promise<boolean> {
@@ -329,13 +413,16 @@ export async function isUserAdmin(uid: string): Promise<boolean> {
     return false;
   }
   if (isD1Backend()) {
-    void uid;
-    const j = await cfJson<{ user: { email: string } | null }>("auth/me");
-    return Boolean(j.user);
+    return cachedFetch(CACHE.admin(uid || "d1"), async () => {
+      const j = await cfJson<{ user: { email: string } | null }>("auth/me");
+      return Boolean(j.user);
+    });
   }
-  const db = getFirestoreDb();
-  const ad = await getDoc(doc(db, C.admins, uid));
-  return ad.exists();
+  return cachedFetch(CACHE.admin(uid), async () => {
+    const db = getFirestoreDb();
+    const ad = await getDoc(doc(db, C.admins, uid));
+    return ad.exists();
+  });
 }
 
 /** Borra documentos de una colección con un campo igual a value (en batches de 450). */
@@ -376,14 +463,19 @@ export type SaveMatchD1Body = {
 };
 
 export async function saveMatchD1(body: SaveMatchD1Body): Promise<{ id: string }> {
-  return cfJson("matches/save", { method: "POST", body: JSON.stringify(body) });
+  const result = await cfJson<{ id: string }>("matches/save", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  invalidateTournamentDataCache();
+  return result;
 }
 
 export async function d1CreatePlayer(
   display_name: string,
   opts?: { nickname?: string | null; guest?: boolean }
 ): Promise<PlayerRow> {
-  return cfJson("players", {
+  const player = await cfJson<PlayerRow>("players", {
     method: "POST",
     body: JSON.stringify({
       display_name,
@@ -391,6 +483,8 @@ export async function d1CreatePlayer(
       guest: opts?.guest ?? false,
     }),
   });
+  invalidateTournamentDataCache();
+  return player;
 }
 
 export async function createGuestPlayer(label: string): Promise<PlayerRow> {
@@ -411,6 +505,7 @@ export async function createGuestPlayer(label: string): Promise<PlayerRow> {
     active: true,
     created_at,
   });
+  invalidateTournamentDataCache();
   return {
     id: ref.id,
     display_name: name,
@@ -427,4 +522,5 @@ export async function d1UpdatePlayer(
   patch: Partial<Pick<PlayerRow, "display_name" | "nickname" | "active" | "guest" | "draft_seed">>
 ): Promise<void> {
   await cfJson(`players/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+  invalidateTournamentDataCache();
 }

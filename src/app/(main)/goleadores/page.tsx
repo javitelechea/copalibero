@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
-import { fetchMatchGoals, fetchMatchLineups, fetchMatches, fetchPlayers } from "@/lib/firestore-queries";
+import { fetchTournamentSnapshot } from "@/lib/firestore-queries";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { computeTopScorers, type TopScorerRow } from "@/lib/top-scorers";
 
@@ -26,12 +26,9 @@ export default function GoleadoresPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [players, matches, lineups, goals] = await Promise.all([
-          fetchPlayers(true),
-          fetchMatches(),
-          fetchMatchLineups(),
-          fetchMatchGoals(),
-        ]);
+        const { players, matches, lineups, goals } = await fetchTournamentSnapshot({
+          confirmations: false,
+        });
         if (cancelled) return;
         setRows(computeTopScorers(players, matches, lineups, goals));
       } catch (e) {
