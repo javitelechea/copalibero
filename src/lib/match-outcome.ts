@@ -32,6 +32,7 @@ export function teamMatchResult(
 }
 
 export function teamResultLabel(match: MatchRow, team: Team): string {
+  if (match.status === "played" && isGoldenGoalMatch(match)) return "Empate";
   const r = teamMatchResult(match, team);
   if (r === "win") return "Victoria";
   if (r === "draw") return "Empate";

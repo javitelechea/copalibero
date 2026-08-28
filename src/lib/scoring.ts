@@ -11,6 +11,7 @@ import type {
   MatchPlayerRow,
   MatchRow,
   PlayerRow,
+  Team,
 } from "@/lib/types";
 
 /** Cuántos resultados recientes se guardan para la columna Últ. */
@@ -59,6 +60,64 @@ function matchPointsForOutcome(outcome: "win" | "draw" | "loss"): number {
   if (outcome === "win") return SCORING.win;
   if (outcome === "draw") return SCORING.draw;
   return SCORING.loss;
+}
+
+export type MatchPointLine = {
+  label: string;
+  points: number;
+};
+
+export type MatchPointsBreakdown = {
+  total: number;
+  bonus: number;
+  bonusWhy: string | null;
+  lines: MatchPointLine[];
+};
+
+function goalDiffForTeam(
+  match: Pick<MatchRow, "team_a_score" | "team_b_score">,
+  team: Team
+): number {
+  return team === "A"
+    ? match.team_a_score - match.team_b_score
+    : match.team_b_score - match.team_a_score;
+}
+
+/** Puntos de un jugador en un partido jugado (misma regla que la tabla). */
+export function matchPointsBreakdown(
+  match: Pick<MatchRow, "team_a_score" | "team_b_score" | "golden_goal_winner" | "status">,
+  team: Team
+): MatchPointsBreakdown {
+  const outcome = teamMatchResult(match, team);
+  const golden = isGoldenGoalMatch(match);
+  const lines: MatchPointLine[] = [{ label: "Presencia", points: SCORING.presence }];
+  let bonus = 0;
+  let bonusWhy: string | null = null;
+
+  if (golden) {
+    if (outcome === "win") {
+      lines.push({ label: "Gol de oro", points: SCORING.win });
+    } else {
+      bonus = SCORING.goldenGoalLossBonus;
+      bonusWhy = "Bonus por perder en gol de oro";
+      lines.push({ label: bonusWhy, points: bonus });
+    }
+  } else if (outcome === "win") {
+    lines.push({ label: "Victoria", points: SCORING.win });
+    const diff = goalDiffForTeam(match, team);
+    if (diff >= SCORING.bigWinMarginMin) {
+      bonus = SCORING.bigWinBonus;
+      bonusWhy = `Goleada (ganó por ${diff})`;
+      lines.push({ label: bonusWhy, points: bonus });
+    }
+  } else if (outcome === "draw") {
+    lines.push({ label: "Empate", points: SCORING.draw });
+  } else {
+    lines.push({ label: "Derrota", points: SCORING.loss });
+  }
+
+  const total = lines.reduce((sum, line) => sum + line.points, 0);
+  return { total, bonus, bonusWhy, lines };
 }
 
 /** Calcula la tabla a partir de partidos jugados, nóminas, goles y confirmaciones. */

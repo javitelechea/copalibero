@@ -31,7 +31,7 @@ export default function EditarPartidoPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="text-2xl font-bold">Editar partido</h1>
-        <p className="mt-1 text-sm text-muted">Actualizá equipos y marcador</p>
+        <p className="mt-1 text-sm text-muted">Equipos Blanco/Negro, goles y resultado</p>
       </header>
       <MatchForm key={match.id} players={players} initialMatch={match} />
     </div>

@@ -14,8 +14,9 @@ import {
   fetchTournamentSnapshot,
 } from "@/lib/firestore-queries";
 import { playerLabel } from "@/lib/player-label";
-import { computeStandings } from "@/lib/scoring";
-import { matchScoreSummary, teamMatchResult, teamResultLabel } from "@/lib/match-outcome";
+import { computeStandings, matchPointsBreakdown } from "@/lib/scoring";
+import { isGoldenGoalMatch, matchScoreSummary, teamMatchResult, teamResultLabel } from "@/lib/match-outcome";
+import { teamDisplayName } from "@/lib/team-labels";
 import type { MatchRow, PlayerRow, Team } from "@/lib/types";
 
 export default function JugadorPage() {
@@ -63,13 +64,15 @@ export default function JugadorPage() {
         const gCount = goals
           .filter((x) => x.match_id === m.id && x.player_id === id)
           .reduce((s, x) => s + x.goals, 0);
-        return { match: m, team: lu.team as Team, result, goals: gCount };
+        const points = matchPointsBreakdown(m, lu.team as Team);
+        return { match: m, team: lu.team as Team, result, goals: gCount, points };
       })
       .filter(Boolean) as {
       match: MatchRow;
       team: Team;
       result: "win" | "draw" | "loss";
       goals: number;
+      points: ReturnType<typeof matchPointsBreakdown>;
     }[];
     list.sort((x, y) => y.match.played_at.localeCompare(x.match.played_at));
     return list;
@@ -98,8 +101,8 @@ export default function JugadorPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/jugadores" className="text-sm font-medium text-accent hover:underline">
-        ← Jugadores
+      <Link href="/" className="text-sm font-medium text-accent hover:underline">
+        ← Tabla
       </Link>
 
       <header className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-surface px-6 py-8 text-center">
@@ -133,36 +136,59 @@ export default function JugadorPage() {
           <p className="text-muted">Todavía no registró partidos en el torneo.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {played.map(({ match: m, team, result, goals: g }) => (
+            {played.map(({ match: m, team, result, goals: g, points }) => (
               <li key={m.id}>
                 <Link
                   href={`/partidos/${m.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3 transition hover:border-accent/30"
+                  className="flex flex-col gap-1.5 rounded-2xl border border-border bg-surface px-4 py-3 transition hover:border-accent/30"
                 >
-                  <span className="text-sm text-muted">
-                    {new Date(m.played_at + "T12:00:00").toLocaleDateString("es", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                  <span className="font-mono font-bold">{matchScoreSummary(m)}</span>
-                  <span
-                    className={
-                      result === "win"
-                        ? "font-semibold text-accent"
-                        : result === "draw"
-                          ? "text-muted"
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted">
+                      {new Date(m.played_at + "T12:00:00").toLocaleDateString("es", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                      <span className="ml-2 text-xs">· {teamDisplayName(team)}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 text-lg font-black tabular-nums ${
+                        points.total > 0 ? "text-accent" : "text-muted"
+                      }`}
+                    >
+                      {points.total > 0 ? "+" : ""}
+                      {points.total}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono font-bold">{matchScoreSummary(m)}</span>
+                    <span
+                      className={
+                        result === "win" && !isGoldenGoalMatch(m)
+                          ? "font-semibold text-accent"
                           : "text-muted"
-                    }
-                  >
-                    {teamResultLabel(m, team)}
-                    {g > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-muted"> · </span>
-                        <GoalBallIcons count={g} size="sm" />
-                      </span>
-                    ) : null}
-                  </span>
+                      }
+                    >
+                      {teamResultLabel(m, team)}
+                      {g > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-muted"> · </span>
+                          <GoalBallIcons count={g} size="sm" />
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted">
+                    {points.lines
+                      .filter((line) => line.points !== 0 || line.label === "Derrota")
+                      .map((line, i) => (
+                        <span key={line.label}>
+                          {i > 0 ? " · " : ""}
+                          <span className={points.bonusWhy === line.label ? "font-medium text-accent" : undefined}>
+                            {line.points === 0 ? line.label : `${line.label} +${line.points}`}
+                          </span>
+                        </span>
+                      ))}
+                  </p>
                 </Link>
               </li>
             ))}

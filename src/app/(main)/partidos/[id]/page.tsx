@@ -10,7 +10,7 @@ import { GoalBallIcons } from "@/components/GoalBallIcons";
 import { SetupBanner } from "@/components/SetupBanner";
 import { canUsePublicApp } from "@/lib/env";
 import { fetchMatchById } from "@/lib/firestore-queries";
-import { displayMatchScores } from "@/lib/match-outcome";
+import { displayMatchScores, isGoldenGoalMatch } from "@/lib/match-outcome";
 import { matchStatusLabel, showsMatchScore, showsMatchTeams } from "@/lib/match-status";
 import { comparePlayers, playerLabel } from "@/lib/player-label";
 import { teamDisplayName } from "@/lib/team-labels";
@@ -113,6 +113,7 @@ export default function PartidoDetailPage() {
             teamA={teamAPlayers}
             teamB={teamBPlayers}
             goalsByPlayer={goalsByPlayer}
+            goldenGoal={isGoldenGoalMatch(match)}
           />
 
           <section className="rounded-2xl border border-border bg-surface p-4">

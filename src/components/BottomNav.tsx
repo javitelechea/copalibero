@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Crosshair, Home, Shield, Trophy, Users } from "lucide-react";
+import { Crown, Crosshair, Home, Shield, Sparkles, Trophy } from "lucide-react";
 
 const items = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/partidos", label: "Partidos", icon: Trophy },
-  { href: "/jugadores", label: "Jugadores", icon: Users },
   { href: "/goleadores", label: "Goleadores", icon: Crosshair },
   { href: "/paternidades", label: "Padres", icon: Crown },
+  { href: "/curiosidades", label: "Curios", icon: Sparkles },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
 

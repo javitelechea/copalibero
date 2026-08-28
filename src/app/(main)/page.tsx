@@ -8,19 +8,26 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { canUsePublicApp, isFirebaseConfigured } from "@/lib/env";
 import { firebaseErrorUserHint } from "@/lib/firebase/client";
-import { playerLabel } from "@/lib/player-label";
+import { comparePlayers, playerLabel } from "@/lib/player-label";
 import {
   fetchTournamentSnapshot,
 } from "@/lib/firestore-queries";
 import { matchStatusLabel } from "@/lib/match-status";
 import { formatMatchDayShort, pickLastPlayedMatch, pickNextScheduledMatch } from "@/lib/next-match";
-import { computeStandings } from "@/lib/scoring";
+import { computeStandings, type StandingRow } from "@/lib/scoring";
 import { matchScoreSummary } from "@/lib/match-outcome";
 import type { MatchRow } from "@/lib/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+
+type TableSortKey = "points" | "avg";
+
+function pointsPerPlayed(row: StandingRow): number {
+  return row.played > 0 ? row.points / row.played : 0;
+}
 
 export default function HomePage() {
   const [standings, setStandings] = useState<ReturnType<typeof computeStandings>>([]);
+  const [sortKey, setSortKey] = useState<TableSortKey>("points");
   const [recent, setRecent] = useState<MatchRow[]>([]);
   const [lastPlayed, setLastPlayed] = useState<MatchRow | null>(null);
   const [nextMatch, setNextMatch] = useState<MatchRow | null>(null);
@@ -61,6 +68,24 @@ export default function HomePage() {
   const mosc = useMemo(() => {
     return standings.find((r) => r.player.display_name.trim().toLowerCase() === "rodrigo coll");
   }, [standings]);
+
+  const sortedStandings = useMemo(() => {
+    const list = [...standings];
+    list.sort((a, b) => {
+      if (sortKey === "avg") {
+        const diff = pointsPerPlayed(b) - pointsPerPlayed(a);
+        if (diff !== 0) return diff;
+        if (b.played !== a.played) return b.played - a.played;
+        if (b.points !== a.points) return b.points - a.points;
+      } else {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goals !== a.goals) return b.goals - a.goals;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+      }
+      return comparePlayers(a.player, b.player);
+    });
+    return list;
+  }, [standings, sortKey]);
 
   if (!canUsePublicApp()) {
     return (
@@ -184,15 +209,15 @@ export default function HomePage() {
             <table className="w-full table-fixed border-collapse text-[clamp(0.5625rem,2.55vw,0.75rem)] leading-tight sm:text-xs">
               <colgroup>
                 <col style={{ width: "5%" }} />
-                <col style={{ width: "32%" }} />
+                <col style={{ width: "28%" }} />
                 <col style={{ width: "7%" }} />
-                <col className="hidden sm:table-column" style={{ width: "7%" }} />
-                <col className="hidden sm:table-column" style={{ width: "7%" }} />
-                <col className="hidden sm:table-column" style={{ width: "7%" }} />
+                <col className="hidden sm:table-column" style={{ width: "6%" }} />
+                <col className="hidden sm:table-column" style={{ width: "6%" }} />
                 <col style={{ width: "7%" }} />
                 <col className="hidden sm:table-column" style={{ width: "6%" }} />
                 <col style={{ width: "9%" }} />
-                <col style={{ width: "18%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "17%" }} />
               </colgroup>
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-[0.58rem] font-bold uppercase tracking-wide text-muted sm:text-[0.65rem]">
@@ -207,9 +232,6 @@ export default function HomePage() {
                   <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Ganados">
                     PG
                   </th>
-                  <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Empatados">
-                    PE
-                  </th>
                   <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Perdidos">
                     PP
                   </th>
@@ -219,8 +241,29 @@ export default function HomePage() {
                   <th className="hidden px-0 py-1.5 text-center sm:table-cell sm:py-2" title="Bonus">
                     B
                   </th>
-                  <th className="px-0 py-1.5 text-center text-accent sm:py-2" title="Puntos torneo">
-                    Pts
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Puntos torneo">
+                    <button
+                      type="button"
+                      onClick={() => setSortKey("points")}
+                      className={`w-full uppercase tracking-wide ${
+                        sortKey === "points" ? "text-accent" : "text-muted hover:text-fg"
+                      }`}
+                      aria-pressed={sortKey === "points"}
+                    >
+                      Pts{sortKey === "points" ? " ↓" : ""}
+                    </button>
+                  </th>
+                  <th className="px-0 py-1.5 text-center sm:py-2" title="Puntos por partido">
+                    <button
+                      type="button"
+                      onClick={() => setSortKey("avg")}
+                      className={`w-full uppercase tracking-wide ${
+                        sortKey === "avg" ? "text-accent" : "text-muted hover:text-fg"
+                      }`}
+                      aria-pressed={sortKey === "avg"}
+                    >
+                      P/P{sortKey === "avg" ? " ↓" : ""}
+                    </button>
                   </th>
                   <th className="px-0 py-1.5 text-center sm:py-2" title="Últimos resultados">
                     Últ
@@ -228,7 +271,7 @@ export default function HomePage() {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((row, i) => (
+                {sortedStandings.map((row, i) => (
                   <tr
                     key={row.player.id}
                     className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2/60"
@@ -259,9 +302,6 @@ export default function HomePage() {
                       {row.wins}
                     </td>
                     <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
-                      {row.draws}
-                    </td>
-                    <td className="hidden px-0 py-1 text-center align-middle tabular-nums sm:table-cell sm:py-1.5">
                       {row.losses}
                     </td>
                     <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">{row.goals}</td>
@@ -270,6 +310,9 @@ export default function HomePage() {
                     </td>
                     <td className="px-0 py-1 text-center align-middle font-black tabular-nums text-accent sm:py-1.5 sm:text-sm">
                       {row.points}
+                    </td>
+                    <td className="px-0 py-1 text-center align-middle tabular-nums sm:py-1.5">
+                      {row.played > 0 ? pointsPerPlayed(row).toFixed(2) : "—"}
                     </td>
                     <td className="px-0 py-1 text-center align-middle sm:py-1.5">
                       <RecentFormBadges form={row.recentForm} />
@@ -281,6 +324,20 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      <Link
+        href="/curiosidades"
+        className="flex items-center gap-4 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-4 transition hover:border-accent/50 hover:bg-accent/10"
+      >
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Curiosidades</p>
+          <p className="text-sm text-muted">Marcadores, palizas, gol de oro y rarezas de los jueves</p>
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-accent" />
+      </Link>
 
       <ChampionHistoria2025
         championPlayerHref={mosc ? `/jugadores/${mosc.player.id}` : undefined}

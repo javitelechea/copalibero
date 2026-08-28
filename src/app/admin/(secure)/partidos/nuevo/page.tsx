@@ -49,8 +49,8 @@ function NuevoPartidoInner() {
         <h1 className="text-2xl font-bold">Nuevo partido</h1>
         <p className="mt-1 text-sm text-muted">
           {createDefaults
-            ? "Plantilla CopaLibero: próximo jueves, 22 h, mismo lugar. Podés cambiar fecha o notas."
-            : "Equipos, resultado y goleadores"}
+            ? "Plantilla CopaLibero: próximo jueves, 22 h, mismo lugar. Asigná Blanco o Negro, goles y resultado."
+            : "Asigná Blanco o Negro a cada jugador, cargá los goles y el resultado"}
         </p>
       </header>
       <MatchForm players={players} createDefaults={createDefaults} />
